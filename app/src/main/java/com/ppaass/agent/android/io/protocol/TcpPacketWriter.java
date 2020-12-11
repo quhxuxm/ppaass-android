@@ -22,8 +22,6 @@ public class TcpPacketWriter {
     }
 
     public byte[] write(TcpPacket packet, IpV4Header ipHeader) {
-        ByteBuffer byteBufferForChecksum =
-                ByteBuffer.allocate(packet.getHeader().getOffset() * 4 + 12 + packet.getData().length);
         ByteBuffer fakeHeaderByteBuffer = ByteBuffer.allocate(12);
         fakeHeaderByteBuffer.put(ipHeader.getSourceAddress());
         fakeHeaderByteBuffer.put(ipHeader.getDestinationAddress());
@@ -31,6 +29,8 @@ public class TcpPacketWriter {
         fakeHeaderByteBuffer.put((byte) IpDataProtocol.TCP.getValue());
         fakeHeaderByteBuffer.putShort((short) (packet.getHeader().getOffset() * 4 + packet.getData().length));
         fakeHeaderByteBuffer.flip();
+        ByteBuffer byteBufferForChecksum =
+                ByteBuffer.allocate(packet.getHeader().getOffset() * 4 + 12 + packet.getData().length);
         byteBufferForChecksum.put(fakeHeaderByteBuffer);
         byte[] tcpPacketBytesForChecksum = this.writeWithGivenChecksum(packet, 0);
         byteBufferForChecksum.put(tcpPacketBytesForChecksum);
