@@ -7,7 +7,7 @@ public interface IIoLoop {
 
     void loop();
 
-    void push(IpPacket ipPacket);
+    void offerIpPacket(IpPacket ipPacket);
 
     void stop();
 }

@@ -25,9 +25,9 @@ public class MainActivity extends AppCompatActivity {
         startVpnButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent vpnIntent = VpnService.prepare(MainActivity.this);
-                if (vpnIntent != null) {
-                    startActivityForResult(vpnIntent, VPN_SERVICE_REQUEST_CODE);
+                Intent startPpaassVpnServiceIntent = VpnService.prepare(MainActivity.this);
+                if (startPpaassVpnServiceIntent != null) {
+                    startActivityForResult(startPpaassVpnServiceIntent, VPN_SERVICE_REQUEST_CODE);
                     return;
                 }
                 onActivityResult(VPN_SERVICE_REQUEST_CODE, RESULT_OK, null);
@@ -37,34 +37,39 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (VPN_SERVICE_REQUEST_CODE == resultCode && requestCode == RESULT_OK) {
-            Intent startPpaassVpnServiceIntent = new Intent(this, PpaassVpnService.class);
-            try {
-                InputStream agentPrivateKeyStream = this.getResources().openRawResource(R.raw.agentprivatekey);
-                byte[] agentPrivateKeyBytes = new byte[agentPrivateKeyStream.available()];
-                int readAgentPrivateKeyBytesResult = agentPrivateKeyStream.read(agentPrivateKeyBytes);
-                if (readAgentPrivateKeyBytesResult < 0) {
-                    throw new RuntimeException();
-                }
-                startPpaassVpnServiceIntent
-                        .putExtra(IPpaassConstant.AGENT_PRIVATE_KEY_INTENT_DATA_NAME, agentPrivateKeyBytes);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            try {
-                InputStream proxyPublicKeyStream = this.getResources().openRawResource(R.raw.proxypublickey);
-                byte[] proxyPublicKeyBytes = new byte[proxyPublicKeyStream.available()];
-                int readProxyPublicKeyBytesResult = proxyPublicKeyStream.read(proxyPublicKeyBytes);
-                if (readProxyPublicKeyBytesResult < 0) {
-                    throw new RuntimeException();
-                }
-                startPpaassVpnServiceIntent
-                        .putExtra(IPpaassConstant.PROXY_PUBLIC_KEY_INTENT_DATA_NAME, readProxyPublicKeyBytesResult);
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-            this.startService(startPpaassVpnServiceIntent);
+        if (requestCode != VPN_SERVICE_REQUEST_CODE) {
+            return;
         }
+        if (resultCode != RESULT_OK) {
+            return;
+        }
+        Intent startPpaassVpnServiceIntent = new Intent(MainActivity.this, PpaassVpnService.class);
+        try {
+            InputStream agentPrivateKeyStream =
+                    MainActivity.this.getResources().openRawResource(R.raw.agentprivatekey);
+            byte[] agentPrivateKeyBytes = new byte[agentPrivateKeyStream.available()];
+            int readAgentPrivateKeyBytesResult = agentPrivateKeyStream.read(agentPrivateKeyBytes);
+            if (readAgentPrivateKeyBytesResult < 0) {
+                throw new RuntimeException();
+            }
+            startPpaassVpnServiceIntent
+                    .putExtra(IPpaassConstant.AGENT_PRIVATE_KEY_INTENT_DATA_NAME, agentPrivateKeyBytes);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            InputStream proxyPublicKeyStream =
+                    MainActivity.this.getResources().openRawResource(R.raw.proxypublickey);
+            byte[] proxyPublicKeyBytes = new byte[proxyPublicKeyStream.available()];
+            int readProxyPublicKeyBytesResult = proxyPublicKeyStream.read(proxyPublicKeyBytes);
+            if (readProxyPublicKeyBytesResult < 0) {
+                throw new RuntimeException();
+            }
+            startPpaassVpnServiceIntent
+                    .putExtra(IPpaassConstant.PROXY_PUBLIC_KEY_INTENT_DATA_NAME, readProxyPublicKeyBytesResult);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        MainActivity.this.startService(startPpaassVpnServiceIntent);
     }
 }

@@ -18,7 +18,7 @@ public class TcpPacketReader {
         header.setDestinationPort(byteBuffer.getShort() & 0xFFFF);
         header.setSequenceNumber(byteBuffer.getInt() & 0xFFFFFFFFL);
         header.setAcknowledgementNumber(byteBuffer.getInt() & 0xFFFFFFFFL);
-        int offsetAndResolvedAndUAPRSF = byteBuffer.getShort();
+        int offsetAndResolvedAndUAPRSF = byteBuffer.getShort() & 0xFFFF;
         header.setOffset(offsetAndResolvedAndUAPRSF >> 12);
         header.setResolve((offsetAndResolvedAndUAPRSF >> 6) & 0x3F);
         header.setUrg(((offsetAndResolvedAndUAPRSF >> 5) & 1) != 0);

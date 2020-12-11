@@ -19,6 +19,8 @@ public class TcpIoLoop implements IIoLoop {
     private final int destinationPort;
     private final String key;
     private TcpLoopStatus status;
+    private Thread loopThread;
+    private boolean alive;
 
     public TcpIoLoop(InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort, int destinationPort,
                      String key) {
@@ -38,43 +40,50 @@ public class TcpIoLoop implements IIoLoop {
 
     @Override
     public void loop() {
-        try {
-            IpPacket packet = this.ipPacketQueue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            if (packet == null) {
-                this.stop();
-                return;
-            }
-            while (packet != null) {
-                //Do some thing
-                IIpHeader ipHeader = packet.getHeader();
-                if (ipHeader.getVersion() != IpHeaderVersion.V4) {
-                    this.stop();
-                    return;
-                }
-                IpV4Header ipV4Header = (IpV4Header) ipHeader;
-                if (ipV4Header.getProtocol() != IpDataProtocol.TCP) {
-                    this.stop();
-                    return;
-                }
-                if (!this.execute(ipV4Header, (TcpPacket) packet.getData())) {
-                    this.stop();
-                    return;
-                }
-                packet = this.ipPacketQueue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            }
-        } catch (InterruptedException e) {
-            this.stop();
+        if (this.loopThread != null) {
+            return;
         }
+        this.loopThread = new Thread(() -> {
+            try {
+                IpPacket packet = TcpIoLoop.this.ipPacketQueue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                if (packet == null) {
+                    TcpIoLoop.this.stop();
+                    return;
+                }
+                while (packet != null && alive) {
+                    //Do some thing
+                    IIpHeader ipHeader = packet.getHeader();
+                    if (ipHeader.getVersion() != IpHeaderVersion.V4) {
+                        TcpIoLoop.this.stop();
+                        return;
+                    }
+                    IpV4Header ipV4Header = (IpV4Header) ipHeader;
+                    if (ipV4Header.getProtocol() != IpDataProtocol.TCP) {
+                        TcpIoLoop.this.stop();
+                        return;
+                    }
+                    if (!TcpIoLoop.this.execute(ipV4Header, (TcpPacket) packet.getData())) {
+                        TcpIoLoop.this.stop();
+                        return;
+                    }
+                    packet = TcpIoLoop.this.ipPacketQueue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                }
+            } catch (InterruptedException e) {
+                TcpIoLoop.this.stop();
+            }
+        });
+        this.loopThread.start();
     }
 
     @Override
-    public void push(IpPacket ipPacket) {
+    public void offerIpPacket(IpPacket ipPacket) {
         this.ipPacketQueue.offer(ipPacket);
     }
 
     @Override
     public void stop() {
         this.ipPacketQueue.clear();
+        this.alive = false;
     }
 
     private boolean execute(IpV4Header ipV4Header, TcpPacket tcpPacket) {
@@ -84,22 +93,23 @@ public class TcpIoLoop implements IIoLoop {
             if (this.status == TcpLoopStatus.LISTEN) {
                 //First syn
                 this.status = TcpLoopStatus.SYN_RECEIVE;
+                return true;
             }
             if (this.status == TcpLoopStatus.ESTABLISHED) {
                 //Send data
+                return true;
             }
-            throw new UnsupportedOperationException("Do not support other.");
         }
         if (tcpHeader.isSyn() && tcpHeader.isAck()) {
             //Receive a syn + ack
-            throw new UnsupportedOperationException("Do not support other.");
+            return true;
         }
         if (!tcpHeader.isSyn() && tcpHeader.isAck()) {
             //Receive a ack
             if (this.status == TcpLoopStatus.SYN_RECEIVE) {
+                return true;
             }
-            throw new UnsupportedOperationException("Do not support other.");
         }
-        throw new UnsupportedOperationException("Do not support other.");
+        return true;
     }
 }
