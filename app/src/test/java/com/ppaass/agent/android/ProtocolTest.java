@@ -1,8 +1,11 @@
 package com.ppaass.agent.android;
 
 import com.ppaass.agent.android.io.protocol.IpPacketReader;
+import com.ppaass.agent.android.io.protocol.IpPacketWriter;
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import org.junit.Test;
+
+import java.util.Arrays;
 
 /**
  * Example local unit test, which will execute on the development machine (host).
@@ -28,5 +31,16 @@ public class ProtocolTest {
         }
         IpPacket ipPacket = IpPacketReader.INSTANCE.parse(ipDataByteArray);
         System.out.println(ipPacket);
+        System.out.println("======================================");
+        byte[] ipPacketArray = IpPacketWriter.INSTANCE.write(ipPacket);
+        short[] ipPacketArrayInShort = new short[ipPacketArray.length];
+        for (int i = 0; i < ipPacketArray.length; i++) {
+            ipPacketArrayInShort[i] = (short) (ipPacketArray[i] & 0xFF);
+        }
+        String[] hexArray = new String[ipPacketArrayInShort.length];
+        for (int i = 0; i < ipPacketArrayInShort.length; i++) {
+            hexArray[i] = Integer.toHexString(ipPacketArrayInShort[i]);
+        }
+        System.out.println(Arrays.toString(hexArray));
     }
 }
