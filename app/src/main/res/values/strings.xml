@@ -1,3 +1,4 @@
 <resources>
-    <string name="app_name">ppaass-android</string>
+    <string name="app_name">Ppaass Android</string>
+    <string name="mainActivity.button.label.start">Start VPN</string>
 </resources>
