@@ -2,23 +2,17 @@ package com.ppaass.agent.android.io.protocol.ip;
 
 public class IpFlags {
     private final int resolved;
-    private boolean df;
-    private boolean mf;
+    private final boolean df;
+    private final boolean mf;
 
-    public IpFlags() {
+    public IpFlags(boolean df, boolean mf) {
         this.resolved = 0;
+        this.df = df;
+        this.mf = mf;
     }
 
     public int getResolved() {
         return resolved;
-    }
-
-    public void setDf(boolean df) {
-        this.df = df;
-    }
-
-    public void setMf(boolean mf) {
-        this.mf = mf;
     }
 
     public boolean isDf() {

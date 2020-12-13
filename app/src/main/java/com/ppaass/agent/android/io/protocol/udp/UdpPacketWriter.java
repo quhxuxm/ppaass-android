@@ -1,9 +1,9 @@
-package com.ppaass.agent.android.io.protocol;
+package com.ppaass.agent.android.io.protocol.udp;
 
+import com.ppaass.agent.android.io.protocol.ChecksumUtil;
 import com.ppaass.agent.android.io.protocol.ip.IpDataProtocol;
 import com.ppaass.agent.android.io.protocol.ip.IpV4Header;
 import com.ppaass.agent.android.io.protocol.ip.IpV6Header;
-import com.ppaass.agent.android.io.protocol.udp.UdpPacket;
 
 import java.nio.ByteBuffer;
 

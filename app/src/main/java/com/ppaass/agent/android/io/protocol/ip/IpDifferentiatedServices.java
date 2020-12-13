@@ -1,41 +1,32 @@
 package com.ppaass.agent.android.io.protocol.ip;
 
 public class IpDifferentiatedServices {
-    private int importance;
-    private boolean delay;
-    private boolean highStream;
-    private boolean highAvailability;
+    private final int importance;
+    private final boolean delay;
+    private final boolean highStream;
+    private final boolean highAvailability;
+
+    public IpDifferentiatedServices(int importance, boolean delay, boolean highStream, boolean highAvailability) {
+        this.importance = importance;
+        this.delay = delay;
+        this.highAvailability = highAvailability;
+        this.highStream = highStream;
+    }
 
     public int getImportance() {
         return importance;
-    }
-
-    public void setImportance(int importance) {
-        this.importance = importance;
     }
 
     public boolean isDelay() {
         return delay;
     }
 
-    public void setDelay(boolean delay) {
-        this.delay = delay;
-    }
-
     public boolean isHighStream() {
         return highStream;
     }
 
-    public void setHighStream(boolean highStream) {
-        this.highStream = highStream;
-    }
-
     public boolean isHighAvailability() {
         return highAvailability;
-    }
-
-    public void setHighAvailability(boolean highAvailability) {
-        this.highAvailability = highAvailability;
     }
 
     @Override

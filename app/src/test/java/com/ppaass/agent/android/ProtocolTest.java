@@ -1,7 +1,7 @@
 package com.ppaass.agent.android;
 
-import com.ppaass.agent.android.io.protocol.IpPacketReader;
-import com.ppaass.agent.android.io.protocol.IpPacketWriter;
+import com.ppaass.agent.android.io.protocol.ip.IpPacketReader;
+import com.ppaass.agent.android.io.protocol.ip.IpPacketWriter;
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import org.junit.Test;
 

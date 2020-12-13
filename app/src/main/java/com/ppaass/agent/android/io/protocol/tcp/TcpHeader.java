@@ -20,11 +20,21 @@ public class TcpHeader {
     private int urgPointer;
     private byte[] optionAndPadding;
 
+    TcpHeader() {
+        this.urg = false;
+        this.ack = false;
+        this.psh = false;
+        this.rst = false;
+        this.syn = false;
+        this.fin = false;
+        this.optionAndPadding = new byte[]{};
+    }
+
     public int getSourcePort() {
         return sourcePort;
     }
 
-    public void setSourcePort(int sourcePort) {
+     void setSourcePort(int sourcePort) {
         this.sourcePort = sourcePort;
     }
 
@@ -32,7 +42,7 @@ public class TcpHeader {
         return destinationPort;
     }
 
-    public void setDestinationPort(int destinationPort) {
+    void setDestinationPort(int destinationPort) {
         this.destinationPort = destinationPort;
     }
 
@@ -40,7 +50,7 @@ public class TcpHeader {
         return sequenceNumber;
     }
 
-    public void setSequenceNumber(long sequenceNumber) {
+    void setSequenceNumber(long sequenceNumber) {
         this.sequenceNumber = sequenceNumber;
     }
 
@@ -48,7 +58,7 @@ public class TcpHeader {
         return acknowledgementNumber;
     }
 
-    public void setAcknowledgementNumber(long acknowledgementNumber) {
+    void setAcknowledgementNumber(long acknowledgementNumber) {
         this.acknowledgementNumber = acknowledgementNumber;
     }
 
@@ -56,7 +66,7 @@ public class TcpHeader {
         return offset;
     }
 
-    public void setOffset(int offset) {
+    void setOffset(int offset) {
         this.offset = offset;
     }
 
@@ -64,7 +74,7 @@ public class TcpHeader {
         return resolve;
     }
 
-    public void setResolve(int resolve) {
+    void setResolve(int resolve) {
         this.resolve = resolve;
     }
 
@@ -72,7 +82,7 @@ public class TcpHeader {
         return urg;
     }
 
-    public void setUrg(boolean urg) {
+    void setUrg(boolean urg) {
         this.urg = urg;
     }
 
@@ -80,7 +90,7 @@ public class TcpHeader {
         return ack;
     }
 
-    public void setAck(boolean ack) {
+    void setAck(boolean ack) {
         this.ack = ack;
     }
 
@@ -88,7 +98,7 @@ public class TcpHeader {
         return psh;
     }
 
-    public void setPsh(boolean psh) {
+    void setPsh(boolean psh) {
         this.psh = psh;
     }
 
@@ -96,7 +106,7 @@ public class TcpHeader {
         return rst;
     }
 
-    public void setRst(boolean rst) {
+    void setRst(boolean rst) {
         this.rst = rst;
     }
 
@@ -104,7 +114,7 @@ public class TcpHeader {
         return syn;
     }
 
-    public void setSyn(boolean syn) {
+    void setSyn(boolean syn) {
         this.syn = syn;
     }
 
@@ -112,7 +122,7 @@ public class TcpHeader {
         return fin;
     }
 
-    public void setFin(boolean fin) {
+    void setFin(boolean fin) {
         this.fin = fin;
     }
 
@@ -120,7 +130,7 @@ public class TcpHeader {
         return window;
     }
 
-    public void setWindow(int window) {
+    void setWindow(int window) {
         this.window = window;
     }
 
@@ -128,11 +138,11 @@ public class TcpHeader {
         return checksum;
     }
 
-    public void setChecksum(int checksum) {
+    void setChecksum(int checksum) {
         this.checksum = checksum;
     }
 
-    public void setUrgPointer(int urgPointer) {
+    void setUrgPointer(int urgPointer) {
         this.urgPointer = urgPointer;
     }
 
@@ -144,7 +154,11 @@ public class TcpHeader {
         return optionAndPadding;
     }
 
-    public void setOptionAndPadding(byte[] optionAndPadding) {
+    void setOptionAndPadding(byte[] optionAndPadding) {
+        if (optionAndPadding == null) {
+            this.optionAndPadding = new byte[]{};
+            return;
+        }
         this.optionAndPadding = optionAndPadding;
     }
 

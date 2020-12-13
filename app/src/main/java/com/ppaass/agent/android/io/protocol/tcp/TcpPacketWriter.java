@@ -1,14 +1,13 @@
-package com.ppaass.agent.android.io.protocol;
+package com.ppaass.agent.android.io.protocol.tcp;
 
+import com.ppaass.agent.android.io.protocol.ChecksumUtil;
 import com.ppaass.agent.android.io.protocol.ip.IpDataProtocol;
 import com.ppaass.agent.android.io.protocol.ip.IpV4Header;
 import com.ppaass.agent.android.io.protocol.ip.IpV6Header;
-import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 
 import java.nio.ByteBuffer;
 
 public class TcpPacketWriter {
-    private static final int FAKE_HEADER_LENGTH = 12;
     public static final TcpPacketWriter INSTANCE = new TcpPacketWriter();
 
     private TcpPacketWriter() {
@@ -49,7 +48,7 @@ public class TcpPacketWriter {
         byteBuffer.putShort((short) packet.getHeader().getDestinationPort());
         byteBuffer.putInt((int) packet.getHeader().getSequenceNumber());
         byteBuffer.putInt((int) packet.getHeader().getAcknowledgementNumber());
-        int offsetAndResolvedAndUAPRSF =(packet.getHeader().getOffset() << 6) | (packet.getHeader().getResolve());
+        int offsetAndResolvedAndUAPRSF = (packet.getHeader().getOffset() << 6) | (packet.getHeader().getResolve());
         offsetAndResolvedAndUAPRSF = offsetAndResolvedAndUAPRSF << 6;
         int flags = (this.convertBoolean(packet.getHeader().isUrg()) << 5) |
                 (this.convertBoolean(packet.getHeader().isAck()) << 4) |

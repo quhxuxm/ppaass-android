@@ -1,36 +1,48 @@
 package com.ppaass.agent.android.io.process.tcp;
 
 import com.ppaass.agent.android.io.process.IIoLoop;
-import com.ppaass.agent.android.io.protocol.ip.*;
-import com.ppaass.agent.android.io.protocol.tcp.TcpHeader;
-import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
+import com.ppaass.agent.android.io.protocol.ip.IpPacket;
+import io.netty.bootstrap.Bootstrap;
 
+import java.io.FileOutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
 
-public class TcpIoLoop implements IIoLoop {
-    private static final int TIMEOUT_SECONDS = 20;
-    private final BlockingDeque<IpPacket> ipPacketQueue;
+public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
+    private static final ExecutorService inputWorkerExecutorService = Executors.newFixedThreadPool(10);
+    private static final ExecutorService outputWorkerExecutorService = Executors.newFixedThreadPool(10);
     private final InetAddress sourceAddress;
     private final InetAddress destinationAddress;
     private final int sourcePort;
     private final int destinationPort;
     private final String key;
-    private TcpLoopStatus status;
-    private Thread loopThread;
-    private boolean alive;
+    private TcpIoLoopStatus status;
+    private final Bootstrap proxyTcpBootstrap;
+    private TcpIoLoopAppToVpnWorker inputWorker;
+    private TcpIoLoopVpnToAppWorker outputWorker;
+    private final BlockingDeque<IpPacket> inputIpPacketQueue;
+    private final BlockingDeque<TcpIoLoopVpntoAppData> outputDataQueue;
+    private final FileOutputStream vpnOutputStream;
+    private long appToVpnSequenceNumber;
+    private long appToVpnAcknowledgementNumber;
+    private long vpnToAppSequenceNumber;
+    private long vpnToAppAcknowledgementNumber;
 
     public TcpIoLoop(InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort, int destinationPort,
-                     String key) {
+                     String key, Bootstrap proxyTcpBootstrap, FileOutputStream vpnOutputStream) {
         this.sourceAddress = sourceAddress;
         this.destinationAddress = destinationAddress;
         this.sourcePort = sourcePort;
         this.destinationPort = destinationPort;
         this.key = key;
-        this.ipPacketQueue = new LinkedBlockingDeque<>();
-        this.status = TcpLoopStatus.LISTEN;
+        this.proxyTcpBootstrap = proxyTcpBootstrap;
+        this.vpnOutputStream = vpnOutputStream;
+        this.status = TcpIoLoopStatus.LISTEN;
+        this.inputIpPacketQueue = new LinkedBlockingDeque<>();
+        this.outputDataQueue = new LinkedBlockingDeque<>();
     }
 
     @Override
@@ -39,77 +51,90 @@ public class TcpIoLoop implements IIoLoop {
     }
 
     @Override
-    public void loop() {
-        if (this.loopThread != null) {
-            return;
-        }
-        this.loopThread = new Thread(() -> {
-            try {
-                IpPacket packet = TcpIoLoop.this.ipPacketQueue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                if (packet == null) {
-                    TcpIoLoop.this.stop();
-                    return;
-                }
-                while (packet != null && alive) {
-                    //Do some thing
-                    IIpHeader ipHeader = packet.getHeader();
-                    if (ipHeader.getVersion() != IpHeaderVersion.V4) {
-                        TcpIoLoop.this.stop();
-                        return;
-                    }
-                    IpV4Header ipV4Header = (IpV4Header) ipHeader;
-                    if (ipV4Header.getProtocol() != IpDataProtocol.TCP) {
-                        TcpIoLoop.this.stop();
-                        return;
-                    }
-                    if (!TcpIoLoop.this.execute(ipV4Header, (TcpPacket) packet.getData())) {
-                        TcpIoLoop.this.stop();
-                        return;
-                    }
-                    packet = TcpIoLoop.this.ipPacketQueue.poll(TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                }
-            } catch (InterruptedException e) {
-                TcpIoLoop.this.stop();
-            }
-        });
-        this.loopThread.start();
+    public void init() {
+        this.inputWorker = new TcpIoLoopAppToVpnWorker(this, this.proxyTcpBootstrap, this.inputIpPacketQueue,
+                this.outputDataQueue);
+        this.outputWorker = new TcpIoLoopVpnToAppWorker(this, this.outputDataQueue, vpnOutputStream);
     }
 
     @Override
-    public void offerIpPacket(IpPacket ipPacket) {
-        this.ipPacketQueue.offer(ipPacket);
+    public final void start() {
+        inputWorkerExecutorService.submit(this.inputWorker);
+        outputWorkerExecutorService.submit(this.outputWorker);
+    }
+
+    @Override
+    public void offerInputIpPacket(IpPacket ipPacket) {
+        this.inputWorker.offerIpPacket(ipPacket);
+    }
+
+    @Override
+    public void offerOutputData(TcpIoLoopVpntoAppData outputData) {
+        this.outputWorker.offerOutputData(outputData);
     }
 
     @Override
     public void stop() {
-        this.ipPacketQueue.clear();
-        this.alive = false;
+        this.inputWorker.stop();
+        this.outputWorker.stop();
     }
 
-    private boolean execute(IpV4Header ipV4Header, TcpPacket tcpPacket) {
-        TcpHeader tcpHeader = tcpPacket.getHeader();
-        if (tcpHeader.isSyn() && !tcpHeader.isAck()) {
-            //Receive a syn.
-            if (this.status == TcpLoopStatus.LISTEN) {
-                //First syn
-                this.status = TcpLoopStatus.SYN_RECEIVE;
-                return true;
-            }
-            if (this.status == TcpLoopStatus.ESTABLISHED) {
-                //Send data
-                return true;
-            }
+    public synchronized void switchStatus(TcpIoLoopStatus inputStatus) {
+        if (inputStatus == null) {
+            return;
         }
-        if (tcpHeader.isSyn() && tcpHeader.isAck()) {
-            //Receive a syn + ack
-            return true;
-        }
-        if (!tcpHeader.isSyn() && tcpHeader.isAck()) {
-            //Receive a ack
-            if (this.status == TcpLoopStatus.SYN_RECEIVE) {
-                return true;
-            }
-        }
-        return true;
+        this.status = inputStatus;
+    }
+
+    public long getAppToVpnSequenceNumber() {
+        return appToVpnSequenceNumber;
+    }
+
+    public void setAppToVpnSequenceNumber(long appToVpnSequenceNumber) {
+        this.appToVpnSequenceNumber = appToVpnSequenceNumber;
+    }
+
+    public long getAppToVpnAcknowledgementNumber() {
+        return appToVpnAcknowledgementNumber;
+    }
+
+    public void setAppToVpnAcknowledgementNumber(long appToVpnAcknowledgementNumber) {
+        this.appToVpnAcknowledgementNumber = appToVpnAcknowledgementNumber;
+    }
+
+    public long getVpnToAppSequenceNumber() {
+        return vpnToAppSequenceNumber;
+    }
+
+    public void setVpnToAppSequenceNumber(long vpnToAppSequenceNumber) {
+        this.vpnToAppSequenceNumber = vpnToAppSequenceNumber;
+    }
+
+    public long getVpnToAppAcknowledgementNumber() {
+        return vpnToAppAcknowledgementNumber;
+    }
+
+    public void setVpnToAppAcknowledgementNumber(long vpnToAppAcknowledgementNumber) {
+        this.vpnToAppAcknowledgementNumber = vpnToAppAcknowledgementNumber;
+    }
+
+    public InetAddress getSourceAddress() {
+        return sourceAddress;
+    }
+
+    public InetAddress getDestinationAddress() {
+        return destinationAddress;
+    }
+
+    public int getSourcePort() {
+        return sourcePort;
+    }
+
+    public int getDestinationPort() {
+        return destinationPort;
+    }
+
+    public TcpIoLoopStatus getStatus() {
+        return status;
     }
 }

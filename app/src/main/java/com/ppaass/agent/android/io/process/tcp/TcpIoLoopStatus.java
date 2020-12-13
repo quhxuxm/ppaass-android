@@ -1,9 +1,10 @@
 package com.ppaass.agent.android.io.process.tcp;
 
-public enum TcpLoopStatus {
+public enum TcpIoLoopStatus {
     LISTEN,
-    SYN_RECEIVE,
+    SYN_RECEIVED,
     ESTABLISHED,
     CLOSE_WAIT,
+    LAST_ACK,
     CLOSED
 }

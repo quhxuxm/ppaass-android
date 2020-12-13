@@ -1,23 +1,20 @@
 package com.ppaass.agent.android.io.protocol.ip;
 
 public class IpExplicitCongestionNotification {
-    private boolean lowCost;
-    private int resolve;
+    private final boolean lowCost;
+    private final int resolve;
+
+    public IpExplicitCongestionNotification(boolean lowCost, int resolve) {
+        this.lowCost = lowCost;
+        this.resolve = resolve;
+    }
 
     public boolean isLowCost() {
         return lowCost;
     }
 
-    public void setLowCost(boolean lowCost) {
-        this.lowCost = lowCost;
-    }
-
     public int getResolve() {
         return resolve;
-    }
-
-    public void setResolve(int resolve) {
-        this.resolve = resolve;
     }
 
     @Override

@@ -4,7 +4,7 @@ public class IpPacket {
     private final IIpHeader header;
     private final IIpData data;
 
-    public IpPacket(IIpHeader header, IIpData data) {
+    IpPacket(IIpHeader header, IIpData data) {
         this.header = header;
         this.data = data;
     }

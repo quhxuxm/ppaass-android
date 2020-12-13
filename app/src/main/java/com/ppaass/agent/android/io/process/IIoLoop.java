@@ -2,12 +2,26 @@ package com.ppaass.agent.android.io.process;
 
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 
-public interface IIoLoop {
+import java.net.InetAddress;
+
+public interface IIoLoop<OutputData> {
     String getKey();
 
-    void loop();
+    void init();
 
-    void offerIpPacket(IpPacket ipPacket);
+    void start();
 
     void stop();
+
+    void offerInputIpPacket(IpPacket ipPacket);
+
+    void offerOutputData(OutputData outputData);
+
+    InetAddress getSourceAddress();
+
+    InetAddress getDestinationAddress();
+
+    int getSourcePort();
+
+    int getDestinationPort();
 }

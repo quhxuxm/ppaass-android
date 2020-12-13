@@ -6,7 +6,7 @@ import java.util.concurrent.ConcurrentMap;
 
 public class IoLoopHolder {
     public static final IoLoopHolder INSTANCE = new IoLoopHolder();
-    private final ConcurrentMap<String, IIoLoop> ioLoops;
+    private final ConcurrentMap<String, IIoLoop<?>> ioLoops;
 
     private IoLoopHolder() {
         this.ioLoops = new ConcurrentHashMap<>();
@@ -18,7 +18,7 @@ public class IoLoopHolder {
                 destinationAddress.getHostAddress(), destinationPort);
     }
 
-    public ConcurrentMap<String, IIoLoop> getIoLoops() {
+    public ConcurrentMap<String, IIoLoop<?>> getIoLoops() {
         return ioLoops;
     }
 }

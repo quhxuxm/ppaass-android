@@ -8,9 +8,13 @@ public class UdpPacket implements IIpData {
     private final UdpHeader header;
     private final byte[] data;
 
-    public UdpPacket(UdpHeader header, byte[] data) {
+    UdpPacket(UdpHeader header, byte[] data) {
         this.header = header;
-        this.data = data;
+        if (data == null) {
+            this.data = new byte[]{};
+        } else {
+            this.data = data;
+        }
     }
 
     public byte[] getData() {

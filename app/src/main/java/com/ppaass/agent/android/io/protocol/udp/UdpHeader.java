@@ -6,11 +6,14 @@ public class UdpHeader {
     private int totalLength;
     private int checksum;
 
+    UdpHeader() {
+    }
+
     public int getSourcePort() {
         return sourcePort;
     }
 
-    public void setSourcePort(int sourcePort) {
+    void setSourcePort(int sourcePort) {
         this.sourcePort = sourcePort;
     }
 
@@ -18,7 +21,7 @@ public class UdpHeader {
         return destinationPort;
     }
 
-    public void setDestinationPort(int destinationPort) {
+    void setDestinationPort(int destinationPort) {
         this.destinationPort = destinationPort;
     }
 
@@ -26,7 +29,7 @@ public class UdpHeader {
         return totalLength;
     }
 
-    public void setTotalLength(int totalLength) {
+    void setTotalLength(int totalLength) {
         this.totalLength = totalLength;
     }
 
@@ -34,7 +37,7 @@ public class UdpHeader {
         return checksum;
     }
 
-    public void setChecksum(int checksum) {
+    void setChecksum(int checksum) {
         this.checksum = checksum;
     }
 

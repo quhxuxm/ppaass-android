@@ -18,8 +18,17 @@ public class IpV4Header implements IIpHeader {
     private byte[] destinationAddress;
     private byte[] options;
 
-    public IpV4Header() {
+    IpV4Header() {
         this.version = IpHeaderVersion.V4;
+        this.ttl = 64;
+        this.internetHeaderLength = 5;
+        this.options = new byte[]{};
+        this.ds = new IpDifferentiatedServices(0, false, false, false);
+        this.ecn = new IpExplicitCongestionNotification(false, 0);
+        this.fragmentOffset = 0;
+        this.identification = 0;
+        this.flags = new IpFlags(true, false);
+        this.totalLength = 0;
     }
 
     @Override
@@ -31,7 +40,7 @@ public class IpV4Header implements IIpHeader {
         return internetHeaderLength;
     }
 
-    public void setInternetHeaderLength(int internetHeaderLength) {
+    void setInternetHeaderLength(int internetHeaderLength) {
         this.internetHeaderLength = internetHeaderLength;
     }
 
@@ -39,7 +48,7 @@ public class IpV4Header implements IIpHeader {
         return ds;
     }
 
-    public void setDs(IpDifferentiatedServices ds) {
+    void setDs(IpDifferentiatedServices ds) {
         this.ds = ds;
     }
 
@@ -47,7 +56,7 @@ public class IpV4Header implements IIpHeader {
         return ecn;
     }
 
-    public void setEcn(IpExplicitCongestionNotification ecn) {
+    void setEcn(IpExplicitCongestionNotification ecn) {
         this.ecn = ecn;
     }
 
@@ -55,7 +64,7 @@ public class IpV4Header implements IIpHeader {
         return totalLength;
     }
 
-    public void setTotalLength(int totalLength) {
+    void setTotalLength(int totalLength) {
         this.totalLength = totalLength;
     }
 
@@ -63,7 +72,7 @@ public class IpV4Header implements IIpHeader {
         return identification;
     }
 
-    public void setIdentification(int identification) {
+    void setIdentification(int identification) {
         this.identification = identification;
     }
 
@@ -71,7 +80,7 @@ public class IpV4Header implements IIpHeader {
         return flags;
     }
 
-    public void setFlags(IpFlags flags) {
+    void setFlags(IpFlags flags) {
         this.flags = flags;
     }
 
@@ -79,7 +88,7 @@ public class IpV4Header implements IIpHeader {
         return fragmentOffset;
     }
 
-    public void setFragmentOffset(int fragmentOffset) {
+    void setFragmentOffset(int fragmentOffset) {
         this.fragmentOffset = fragmentOffset;
     }
 
@@ -87,7 +96,7 @@ public class IpV4Header implements IIpHeader {
         return ttl;
     }
 
-    public void setTtl(int ttl) {
+    void setTtl(int ttl) {
         this.ttl = ttl;
     }
 
@@ -95,7 +104,7 @@ public class IpV4Header implements IIpHeader {
         return protocol;
     }
 
-    public void setProtocol(IpDataProtocol protocol) {
+    void setProtocol(IpDataProtocol protocol) {
         this.protocol = protocol;
     }
 
@@ -103,7 +112,7 @@ public class IpV4Header implements IIpHeader {
         return checksum;
     }
 
-    public void setChecksum(int checksum) {
+    void setChecksum(int checksum) {
         this.checksum = checksum;
     }
 
@@ -111,7 +120,7 @@ public class IpV4Header implements IIpHeader {
         return sourceAddress;
     }
 
-    public void setSourceAddress(byte[] sourceAddress) {
+    void setSourceAddress(byte[] sourceAddress) {
         this.sourceAddress = sourceAddress;
     }
 
@@ -119,7 +128,7 @@ public class IpV4Header implements IIpHeader {
         return destinationAddress;
     }
 
-    public void setDestinationAddress(byte[] destinationAddress) {
+    void setDestinationAddress(byte[] destinationAddress) {
         this.destinationAddress = destinationAddress;
     }
 
@@ -127,7 +136,11 @@ public class IpV4Header implements IIpHeader {
         return options;
     }
 
-    public void setOptions(byte[] options) {
+    void setOptions(byte[] options) {
+        if (options == null) {
+            this.options = new byte[]{};
+            return;
+        }
         this.options = options;
     }
 

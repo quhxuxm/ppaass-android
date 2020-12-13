@@ -8,9 +8,13 @@ public class TcpPacket implements IIpData {
     private final TcpHeader header;
     private final byte[] data;
 
-    public TcpPacket(TcpHeader header, byte[] data) {
+    TcpPacket(TcpHeader header, byte[] data) {
         this.header = header;
-        this.data = data;
+        if (data == null) {
+            this.data = new byte[]{};
+        } else {
+            this.data = data;
+        }
     }
 
     public TcpHeader getHeader() {
