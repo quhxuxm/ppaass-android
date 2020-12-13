@@ -141,6 +141,14 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     continue;
                 }
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
+                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                            "Tcp loop ESTABLISHED already, current tcp loop status = " + this.tcpIoLoop.getStatus() + ", key = " +
+                                    this.tcpIoLoop.getKey() + ", app ack number = " +
+                                    inputTcpHeader.getAcknowledgementNumber() +
+                                    ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber() + ", syn = " +
+                                    inputTcpHeader.isSyn() + ", ack = " + inputTcpHeader.isAck() + ", psh = " +
+                                    inputTcpHeader.isPsh() + ", rst = " + inputTcpHeader.isRst() + ", fin = " +
+                                    inputTcpHeader.isFin());
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
                 }
             }
