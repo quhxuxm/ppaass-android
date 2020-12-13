@@ -60,6 +60,7 @@ public class PpaassVpnService extends VpnService {
                 try {
                     int readResult = vpnInputStream.read(buffer);
                     if (readResult <= 0) {
+                        Thread.sleep(100);
                         continue;
                     }
                     IpPacket ipPacket = IpPacketReader.INSTANCE.parse(buffer);
@@ -122,7 +123,7 @@ public class PpaassVpnService extends VpnService {
                     }
                     Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);
                     throw new UnsupportedOperationException("Do not support other protocol.");
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException e) {
                     throw new RuntimeException(e);
                 }
             }

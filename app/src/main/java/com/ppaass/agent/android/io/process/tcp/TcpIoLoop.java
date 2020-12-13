@@ -59,6 +59,8 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
 
     @Override
     public final void start() {
+        this.inputWorker.start();
+        this.outputWorker.start();
         inputWorkerExecutorService.submit(this.inputWorker);
         outputWorkerExecutorService.submit(this.outputWorker);
     }

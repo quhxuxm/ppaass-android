@@ -66,7 +66,7 @@ public class MainActivity extends AppCompatActivity {
                 throw new RuntimeException();
             }
             startPpaassVpnServiceIntent
-                    .putExtra(IPpaassConstant.PROXY_PUBLIC_KEY_INTENT_DATA_NAME, readProxyPublicKeyBytesResult);
+                    .putExtra(IPpaassConstant.PROXY_PUBLIC_KEY_INTENT_DATA_NAME, proxyPublicKeyBytes);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
