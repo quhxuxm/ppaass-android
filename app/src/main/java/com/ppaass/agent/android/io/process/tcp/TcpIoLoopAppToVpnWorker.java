@@ -70,6 +70,14 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getSequenceNumber());
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
+            Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                    "Receive tcp packet, current tcp loop status = " + this.tcpIoLoop.getStatus() + ", key = " +
+                            this.tcpIoLoop.getKey() + ", app ack number = " +
+                            inputTcpHeader.getAcknowledgementNumber() +
+                            ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber() + ", syn = " +
+                            inputTcpHeader.isSyn() + ", ack = " + inputTcpHeader.isAck() + ", psh = " +
+                            inputTcpHeader.isPsh() + ", rst = " + inputTcpHeader.isRst() + ", fin = " +
+                            inputTcpHeader.isFin());
             if (inputTcpHeader.isSyn() && !inputTcpHeader.isAck()) {
                 //Receive a syn.
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.LISTEN) {
@@ -125,6 +133,10 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                                         ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber());
                         continue;
                     }
+                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                            "Switch tcp loop to ESTABLISHED, key = " + this.tcpIoLoop.getKey() + ", app ack number = " +
+                                    inputTcpHeader.getAcknowledgementNumber() +
+                                    ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber());
                     this.tcpIoLoop.switchStatus(TcpIoLoopStatus.ESTABLISHED);
                     continue;
                 }
