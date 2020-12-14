@@ -80,14 +80,14 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             if (inputTcpHeader.getSequenceNumber() == this.tcpIoLoop.getAppToVpnSequenceNumber() &&
                     inputTcpHeader.getAcknowledgementNumber() == this.tcpIoLoop.getAppToVpnAcknowledgementNumber()) {
                 Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                        "Ignore duplicate tcp packet, input tcp header = " + inputTcpHeader + ", tcp loop = " +
+                        "Ignore duplicate tcp packet, input ip packet = " + inputIpPacket + ", tcp loop = " +
                                 this.tcpIoLoop);
                 continue;
             }
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getSequenceNumber());
             this.tcpIoLoop.setAppToVpnAcknowledgementNumber(inputTcpHeader.getAcknowledgementNumber());
             Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                    "Receive tcp packet, input tcp header = " + inputTcpHeader + ", tcp loop = " +
+                    "Receive tcp packet, input ip packet = " + inputIpPacket + ", tcp loop = " +
                             this.tcpIoLoop);
             if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.CLOSED) {
                 Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
@@ -152,7 +152,8 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     }
                     this.tcpIoLoop.switchStatus(TcpIoLoopStatus.ESTABLISHED);
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                            "Switch tcp loop to ESTABLISHED, tcp loop = " + this.tcpIoLoop);
+                            "Switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                    this.tcpIoLoop);
                     if (inputTcpPacket.getData().length > 0) {
                         MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
                                 SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
@@ -176,7 +177,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                            "Tcp loop ESTABLISHED already, input tcp header = " + inputTcpHeader + ", tcp loop = " +
+                            "Tcp loop ESTABLISHED already, input ip packet =" + inputIpPacket + ", tcp loop = " +
                                     this.tcpIoLoop);
                     continue;
                 }
@@ -205,7 +206,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber() + 1);
                 proxyChannel.writeAndFlush(agentMessage);
                 Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                        "Receive push, input tcp header = " + inputTcpHeader + ",tcp loop = " + this.tcpIoLoop);
+                        "Receive push, input ip packet =" + inputIpPacket + ",tcp loop = " + this.tcpIoLoop);
                 continue;
             }
             if (inputTcpHeader.isFin()) {

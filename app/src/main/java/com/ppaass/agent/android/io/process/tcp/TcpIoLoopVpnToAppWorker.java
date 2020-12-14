@@ -61,7 +61,7 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
                     .sequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber())
                     .acknowledgementNumber(tcpIoLoop.getVpnToAppAcknowledgementNumber())
                     .destinationPort(tcpIoLoop.getSourcePort())
-                    .sourcePort(tcpIoLoop.getDestinationPort());
+                    .sourcePort(tcpIoLoop.getDestinationPort()).window(65535);
             IpPacketBuilder ipPacketBuilder = new IpPacketBuilder().header(ipV4Header);
             switch (outputData.getCommand()) {
                 case DO_ACK: {
