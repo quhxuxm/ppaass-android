@@ -70,14 +70,14 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
             if (inputTcpHeader.getSequenceNumber() == this.tcpIoLoop.getAppToVpnSequenceNumber() &&
                     inputTcpHeader.getAcknowledgementNumber() == this.tcpIoLoop.getAppToVpnAcknowledgementNumber()) {
-                Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                         "Ignore duplicate tcp packet, input tcp header = " + inputTcpHeader + ", tcp loop = " +
                                 this.tcpIoLoop);
                 continue;
             }
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getSequenceNumber());
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
-            Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+            Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                     "Receive tcp packet, input tcp header = " + inputTcpHeader + ", tcp loop = " +
                             this.tcpIoLoop);
             if (inputTcpHeader.isSyn() && !inputTcpHeader.isAck()) {
@@ -135,13 +135,13 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                         continue;
                     }
                     this.tcpIoLoop.switchStatus(TcpIoLoopStatus.ESTABLISHED);
-                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                    Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Switch tcp loop to ESTABLISHED, tcp loop = " + this.tcpIoLoop);
                     continue;
                 }
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
-                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                    Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Tcp loop ESTABLISHED already, input tcp header = " + inputTcpHeader + ", tcp loop = " +
                                     this.tcpIoLoop);
                 }

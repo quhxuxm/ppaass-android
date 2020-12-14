@@ -77,11 +77,14 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
             IpPacket ipPacket = ipPacketBuilder.build();
             try {
                 byte[] ipPacketBytes = IpPacketWriter.INSTANCE.write(ipPacket);
-                Log.i(TcpIoLoopVpnToAppWorker.class.getName(),
-                        "Write ip packet from VPN to APP, write tcp packet = "+tcpPacket+", tcp loop = "+this.tcpIoLoop);
+                Log.d(TcpIoLoopVpnToAppWorker.class.getName(),
+                        "Write ip packet from VPN to APP, write tcp packet = " + tcpPacket + ", tcp loop = " +
+                                this.tcpIoLoop);
                 this.vpnOutputStream.write(ipPacketBytes);
                 this.vpnOutputStream.flush();
             } catch (IOException e) {
+                Log.e(TcpIoLoopVpnToAppWorker.class.getName(), "Fail to write ip packet to APP because of exception.",
+                        e);
                 this.stop();
                 return;
             }

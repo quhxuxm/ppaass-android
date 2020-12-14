@@ -1,5 +1,6 @@
 package com.ppaass.agent.android.io.process.tcp;
 
+import android.util.Log;
 import com.ppaass.agent.android.io.process.IIoLoop;
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.bootstrap.Bootstrap;
@@ -21,8 +22,8 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
     private final String key;
     private TcpIoLoopStatus status;
     private final Bootstrap proxyTcpBootstrap;
-    private TcpIoLoopAppToVpnWorker inputWorker;
-    private TcpIoLoopVpnToAppWorker outputWorker;
+    private TcpIoLoopAppToVpnWorker appToVpnWorker;
+    private TcpIoLoopVpnToAppWorker vpnToAppWorker;
     private final BlockingDeque<IpPacket> inputIpPacketQueue;
     private final BlockingDeque<TcpIoLoopVpntoAppData> outputDataQueue;
     private final FileOutputStream vpnOutputStream;
@@ -52,33 +53,37 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
 
     @Override
     public void init() {
-        this.inputWorker = new TcpIoLoopAppToVpnWorker(this, this.proxyTcpBootstrap, this.inputIpPacketQueue,
+        this.appToVpnWorker = new TcpIoLoopAppToVpnWorker(this, this.proxyTcpBootstrap, this.inputIpPacketQueue,
                 this.outputDataQueue);
-        this.outputWorker = new TcpIoLoopVpnToAppWorker(this, this.outputDataQueue, vpnOutputStream);
+        this.vpnToAppWorker = new TcpIoLoopVpnToAppWorker(this, this.outputDataQueue, vpnOutputStream);
     }
 
     @Override
     public final void start() {
-        this.inputWorker.start();
-        this.outputWorker.start();
-        inputWorkerExecutorService.submit(this.inputWorker);
-        outputWorkerExecutorService.submit(this.outputWorker);
+        this.appToVpnWorker.start();
+        this.vpnToAppWorker.start();
+        inputWorkerExecutorService.submit(this.appToVpnWorker);
+        outputWorkerExecutorService.submit(this.vpnToAppWorker);
     }
 
     @Override
     public void offerInputIpPacket(IpPacket ipPacket) {
-        this.inputWorker.offerIpPacket(ipPacket);
+        Log.d(TcpIoLoop.class.getName(),
+                "Offer ip packet to TcpIoLoopAppToVpnWorker, ip packet = " + ipPacket + ", tcp loop = " + this);
+        this.appToVpnWorker.offerIpPacket(ipPacket);
     }
 
     @Override
     public void offerOutputData(TcpIoLoopVpntoAppData outputData) {
-        this.outputWorker.offerOutputData(outputData);
+        Log.d(TcpIoLoop.class.getName(),
+                "Offer output data to TcpIoLoopVpnToAppWorker, output data = " + outputData + ", tcp loop = " + this);
+        this.vpnToAppWorker.offerOutputData(outputData);
     }
 
     @Override
     public void stop() {
-        this.inputWorker.stop();
-        this.outputWorker.stop();
+        this.appToVpnWorker.stop();
+        this.vpnToAppWorker.stop();
     }
 
     public synchronized void switchStatus(TcpIoLoopStatus inputStatus) {
@@ -88,35 +93,35 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
         this.status = inputStatus;
     }
 
-    public long getAppToVpnSequenceNumber() {
+    public synchronized long getAppToVpnSequenceNumber() {
         return appToVpnSequenceNumber;
     }
 
-    public void setAppToVpnSequenceNumber(long appToVpnSequenceNumber) {
+    public synchronized void setAppToVpnSequenceNumber(long appToVpnSequenceNumber) {
         this.appToVpnSequenceNumber = appToVpnSequenceNumber;
     }
 
-    public long getAppToVpnAcknowledgementNumber() {
+    public synchronized long getAppToVpnAcknowledgementNumber() {
         return appToVpnAcknowledgementNumber;
     }
 
-    public void setAppToVpnAcknowledgementNumber(long appToVpnAcknowledgementNumber) {
+    public synchronized void setAppToVpnAcknowledgementNumber(long appToVpnAcknowledgementNumber) {
         this.appToVpnAcknowledgementNumber = appToVpnAcknowledgementNumber;
     }
 
-    public long getVpnToAppSequenceNumber() {
+    public synchronized long getVpnToAppSequenceNumber() {
         return vpnToAppSequenceNumber;
     }
 
-    public void setVpnToAppSequenceNumber(long vpnToAppSequenceNumber) {
+    public synchronized void setVpnToAppSequenceNumber(long vpnToAppSequenceNumber) {
         this.vpnToAppSequenceNumber = vpnToAppSequenceNumber;
     }
 
-    public long getVpnToAppAcknowledgementNumber() {
+    public synchronized long getVpnToAppAcknowledgementNumber() {
         return vpnToAppAcknowledgementNumber;
     }
 
-    public void setVpnToAppAcknowledgementNumber(long vpnToAppAcknowledgementNumber) {
+    public synchronized void setVpnToAppAcknowledgementNumber(long vpnToAppAcknowledgementNumber) {
         this.vpnToAppAcknowledgementNumber = vpnToAppAcknowledgementNumber;
     }
 

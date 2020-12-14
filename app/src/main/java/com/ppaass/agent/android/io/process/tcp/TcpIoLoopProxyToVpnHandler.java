@@ -30,7 +30,7 @@ public class TcpIoLoopProxyToVpnHandler extends SimpleChannelInboundHandler<Mess
             tcpIoLoop.switchStatus(TcpIoLoopStatus.SYN_RECEIVED);
             TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
             outputData.setCommand(TcpIoLoopVpnToAppCommand.SYN_ACK);
-            Log.i(TcpIoLoopProxyToVpnHandler.class.getName(),
+            Log.d(TcpIoLoopProxyToVpnHandler.class.getName(),
                     "Receive proxy connect success response, tcp loop = " + tcpIoLoop + ", tcp output data = " +
                             outputData);
             tcpIoLoop.offerOutputData(outputData);
@@ -40,7 +40,7 @@ public class TcpIoLoopProxyToVpnHandler extends SimpleChannelInboundHandler<Mess
             TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
             outputData.setCommand(TcpIoLoopVpnToAppCommand.ACK);
             outputData.setData(proxyMessage.getBody().getData());
-            Log.i(TcpIoLoopProxyToVpnHandler.class.getName(),
+            Log.d(TcpIoLoopProxyToVpnHandler.class.getName(),
                     "Receive proxy connect success response, tcp loop = " + tcpIoLoop + ", tcp output data = " +
                             outputData);
             tcpIoLoop.offerOutputData(outputData);
