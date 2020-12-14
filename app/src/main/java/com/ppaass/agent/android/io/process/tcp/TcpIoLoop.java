@@ -154,8 +154,6 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
                 ", destinationPort=" + destinationPort +
                 ", key='" + key + '\'' +
                 ", status=" + status +
-                ", inputIpPacketQueue=" + inputIpPacketQueue +
-                ", outputDataQueue=" + outputDataQueue +
                 ", appToVpnSequenceNumber=" + appToVpnSequenceNumber +
                 ", appToVpnAcknowledgementNumber=" + appToVpnAcknowledgementNumber +
                 ", vpnToAppSequenceNumber=" + vpnToAppSequenceNumber +

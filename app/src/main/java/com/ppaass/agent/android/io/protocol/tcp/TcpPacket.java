@@ -2,8 +2,6 @@ package com.ppaass.agent.android.io.protocol.tcp;
 
 import com.ppaass.agent.android.io.protocol.ip.IIpData;
 
-import java.util.Arrays;
-
 public class TcpPacket implements IIpData {
     private final TcpHeader header;
     private final byte[] data;
@@ -29,7 +27,7 @@ public class TcpPacket implements IIpData {
     public String toString() {
         return "TcpPacket{" +
                 "header=" + header +
-                ", data=" + Arrays.toString(data) +
+                ", data size = " + data.length +
                 '}';
     }
 }

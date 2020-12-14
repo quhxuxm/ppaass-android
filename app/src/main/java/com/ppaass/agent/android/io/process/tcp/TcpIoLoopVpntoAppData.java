@@ -1,10 +1,12 @@
 package com.ppaass.agent.android.io.process.tcp;
 
-import java.util.Arrays;
-
 public class TcpIoLoopVpntoAppData {
     private TcpIoLoopVpnToAppCommand command;
     private byte[] data;
+
+    public TcpIoLoopVpntoAppData() {
+        this.data = new byte[]{};
+    }
 
     public TcpIoLoopVpnToAppCommand getCommand() {
         return command;
@@ -19,6 +21,10 @@ public class TcpIoLoopVpntoAppData {
     }
 
     public void setData(byte[] data) {
+        if (data == null) {
+            this.data = new byte[]{};
+            return;
+        }
         this.data = data;
     }
 
@@ -26,7 +32,7 @@ public class TcpIoLoopVpntoAppData {
     public String toString() {
         return "TcpIoLoopVpntoAppData{" +
                 "command=" + command +
-                ", data=" + Arrays.toString(data) +
+                ", data size=" + (data == null ? 0 : data.length) +
                 '}';
     }
 }
