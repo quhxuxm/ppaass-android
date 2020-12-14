@@ -37,7 +37,8 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
         try {
             this.outputDataQueue.put(outputData);
         } catch (InterruptedException e) {
-            Log.e(TcpIoLoopVpnToAppWorker.class.getName(),"Fail to put output data to the queue, tcp loop = "+this.tcpIoLoop);
+            Log.e(TcpIoLoopVpnToAppWorker.class.getName(),
+                    "Fail to put output data to the queue, tcp loop = " + this.tcpIoLoop);
         }
     }
 
@@ -63,16 +64,24 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
                     .sourcePort(tcpIoLoop.getDestinationPort());
             IpPacketBuilder ipPacketBuilder = new IpPacketBuilder().header(ipV4Header);
             switch (outputData.getCommand()) {
-                case ACK: {
+                case DO_ACK: {
                     tcpPacketBuilder.ack(true);
                     break;
                 }
-                case SYN: {
+                case DO_SYN: {
                     tcpPacketBuilder.syn(true);
                     break;
                 }
-                case SYN_ACK: {
+                case DO_SYN_ACK: {
                     tcpPacketBuilder.ack(true).syn(true);
+                    break;
+                }
+                case DO_FIN_ACK: {
+                    tcpPacketBuilder.ack(true);
+                    break;
+                }
+                case DO_LAST_ACK: {
+                    tcpPacketBuilder.fin(true);
                     break;
                 }
             }

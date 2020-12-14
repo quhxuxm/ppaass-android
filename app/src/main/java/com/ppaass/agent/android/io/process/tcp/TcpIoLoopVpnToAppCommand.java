@@ -1,7 +1,9 @@
 package com.ppaass.agent.android.io.process.tcp;
 
 public enum TcpIoLoopVpnToAppCommand {
-    SYN_ACK,
-    ACK,
-    SYN
+    DO_SYN_ACK,
+    DO_FIN_ACK,
+    DO_LAST_ACK,
+    DO_ACK,
+    DO_SYN
 }
