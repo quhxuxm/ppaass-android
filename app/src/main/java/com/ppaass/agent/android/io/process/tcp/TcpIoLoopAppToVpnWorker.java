@@ -18,16 +18,16 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
     private final Bootstrap proxyTcpBootstrap;
     private boolean alive;
     private Channel proxyChannel = null;
-    private final BlockingDeque<IpPacket> inputIpPacketQueue;
+    private final BlockingDeque<IpPacket> appToVpnIppacketQueue;
     private final BlockingDeque<TcpIoLoopVpntoAppData> outputDataQueue;
 
     TcpIoLoopAppToVpnWorker(TcpIoLoop tcpIoLoop,
                             Bootstrap proxyTcpBootstrap,
-                            BlockingDeque<IpPacket> inputIpPacketQueue,
+                            BlockingDeque<IpPacket> appToVpnIppacketQueue,
                             BlockingDeque<TcpIoLoopVpntoAppData> outputDataQueue) {
         this.tcpIoLoop = tcpIoLoop;
         this.proxyTcpBootstrap = proxyTcpBootstrap;
-        this.inputIpPacketQueue = inputIpPacketQueue;
+        this.appToVpnIppacketQueue = appToVpnIppacketQueue;
         this.outputDataQueue = outputDataQueue;
         this.alive = false;
     }
@@ -38,11 +38,15 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
 
     public void stop() {
         this.alive = false;
-        this.inputIpPacketQueue.clear();
+        this.appToVpnIppacketQueue.clear();
     }
 
     public void offerIpPacket(IpPacket ipPacket) {
-        this.inputIpPacketQueue.offer(ipPacket);
+        try {
+            this.appToVpnIppacketQueue.put(ipPacket);
+        } catch (InterruptedException e) {
+            Log.e(TcpIoLoopAppToVpnWorker.class.getName(),"Fail to put ip packet to the queue, tcp loop = "+this.tcpIoLoop);
+        }
     }
 
     @Override
@@ -50,7 +54,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
         while (alive) {
             IpPacket inputIpPacket = null;
             try {
-                inputIpPacket = this.inputIpPacketQueue.take();
+                inputIpPacket = this.appToVpnIppacketQueue.take();
             } catch (InterruptedException e) {
                 this.stop();
                 return;
@@ -76,7 +80,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 continue;
             }
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getSequenceNumber());
-            this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
+            this.tcpIoLoop.setAppToVpnAcknowledgementNumber(inputTcpHeader.getAcknowledgementNumber());
             Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                     "Receive tcp packet, input tcp header = " + inputTcpHeader + ", tcp loop = " +
                             this.tcpIoLoop);

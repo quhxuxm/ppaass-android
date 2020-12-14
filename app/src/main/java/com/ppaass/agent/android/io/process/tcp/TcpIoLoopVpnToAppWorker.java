@@ -34,7 +34,11 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
     }
 
     public void offerOutputData(TcpIoLoopVpntoAppData outputData) {
-        this.outputDataQueue.offer(outputData);
+        try {
+            this.outputDataQueue.put(outputData);
+        } catch (InterruptedException e) {
+            Log.e(TcpIoLoopVpnToAppWorker.class.getName(),"Fail to put output data to the queue, tcp loop = "+this.tcpIoLoop);
+        }
     }
 
     @Override
