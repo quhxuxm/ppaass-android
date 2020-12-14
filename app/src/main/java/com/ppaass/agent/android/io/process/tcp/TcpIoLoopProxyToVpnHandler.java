@@ -21,6 +21,8 @@ public class TcpIoLoopProxyToVpnHandler extends SimpleChannelInboundHandler<Mess
         TcpIoLoop tcpIoLoop = proxyChannel.attr(IIoConstant.TCP_LOOP).get();
         ProxyMessageBodyType proxyMessageBodyType = proxyMessage.getBody().getBodyType();
         if (proxyMessageBodyType == ProxyMessageBodyType.CONNECT_FAIL) {
+            Log.e(TcpIoLoopProxyToVpnHandler.class.getName(),
+                    "Fail connect to target, tcp loop = " + tcpIoLoop);
             return;
         }
         if (proxyMessageBodyType == ProxyMessageBodyType.HEARTBEAT) {
