@@ -5,5 +5,6 @@ public enum TcpIoLoopVpnToAppCommand {
     DO_FIN_ACK,
     DO_LAST_ACK,
     DO_ACK,
+    DO_PSH_ACK,
     DO_SYN
 }

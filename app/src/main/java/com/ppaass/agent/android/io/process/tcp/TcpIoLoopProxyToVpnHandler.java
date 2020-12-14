@@ -40,7 +40,7 @@ public class TcpIoLoopProxyToVpnHandler extends SimpleChannelInboundHandler<Mess
         }
         if (proxyMessageBodyType == ProxyMessageBodyType.OK_TCP) {
             TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
-            outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
+            outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_PSH_ACK);
             outputData.setData(proxyMessage.getBody().getData());
 //            tcpIoLoop.setVpnToAppSequenceNumber(
 //                    tcpIoLoop.getAppToVpnAcknowledgementNumber() + proxyMessage.getBody().getData().length + 1);

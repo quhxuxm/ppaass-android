@@ -142,7 +142,6 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 }
             }
             if (!inputTcpHeader.isSyn() && inputTcpHeader.isAck()) {
-                //ACK for SYN ACK
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
                     if (inputTcpHeader.getSequenceNumber() != tcpIoLoop.getVpnToAppAcknowledgementNumber()) {
                         Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
@@ -158,7 +157,6 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 }
                 if (inputTcpHeader.isPsh()) {
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
-                    //PSH ACK
                     if (inputTcpPacket.getData().length > 0) {
                         MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
                                 SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
