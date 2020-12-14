@@ -86,6 +86,7 @@ public class PpaassVpnService extends VpnService {
                                             destinationPort, key, proxyTcpBootstrap, vpnOutputStream);
                                     result.init();
                                     result.start();
+                                    Log.i(PpaassVpnService.class.getName(),"Initialize tcp loop, tcp packet="+tcpPacket+", tcp loop = "+result);
                                     return result;
                                 });
                         IIoLoop<?> ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);

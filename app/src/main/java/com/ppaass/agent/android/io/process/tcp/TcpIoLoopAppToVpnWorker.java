@@ -68,6 +68,13 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             }
             TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
             TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+            if (inputTcpHeader.getSequenceNumber() == this.tcpIoLoop.getAppToVpnSequenceNumber() &&
+                    inputTcpHeader.getAcknowledgementNumber() == this.tcpIoLoop.getAppToVpnAcknowledgementNumber()) {
+                Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                        "Ignore duplicate tcp packet, input tcp header = " + inputTcpHeader + ", tcp loop = " +
+                                this.tcpIoLoop);
+                continue;
+            }
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getSequenceNumber());
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
             Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
