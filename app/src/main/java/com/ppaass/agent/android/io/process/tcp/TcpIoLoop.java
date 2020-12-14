@@ -139,4 +139,22 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
     public TcpIoLoopStatus getStatus() {
         return status;
     }
+
+    @Override
+    public String toString() {
+        return "TcpIoLoop{" +
+                "sourceAddress=" + sourceAddress +
+                ", destinationAddress=" + destinationAddress +
+                ", sourcePort=" + sourcePort +
+                ", destinationPort=" + destinationPort +
+                ", key='" + key + '\'' +
+                ", status=" + status +
+                ", inputIpPacketQueue=" + inputIpPacketQueue +
+                ", outputDataQueue=" + outputDataQueue +
+                ", appToVpnSequenceNumber=" + appToVpnSequenceNumber +
+                ", appToVpnAcknowledgementNumber=" + appToVpnAcknowledgementNumber +
+                ", vpnToAppSequenceNumber=" + vpnToAppSequenceNumber +
+                ", vpnToAppAcknowledgementNumber=" + vpnToAppAcknowledgementNumber +
+                '}';
+    }
 }

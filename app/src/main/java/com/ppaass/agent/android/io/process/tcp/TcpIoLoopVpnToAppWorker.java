@@ -2,11 +2,11 @@ package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
 import com.ppaass.agent.android.io.protocol.ip.*;
+import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacketBuilder;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.concurrent.BlockingDeque;
 
 class TcpIoLoopVpnToAppWorker implements Runnable {
@@ -72,12 +72,13 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
                     break;
                 }
             }
-            ipPacketBuilder.data(tcpPacketBuilder.build());
+            TcpPacket tcpPacket = tcpPacketBuilder.build();
+            ipPacketBuilder.data(tcpPacket);
             IpPacket ipPacket = ipPacketBuilder.build();
             try {
                 byte[] ipPacketBytes = IpPacketWriter.INSTANCE.write(ipPacket);
                 Log.i(TcpIoLoopVpnToAppWorker.class.getName(),
-                        "Ip Packet write from VPN to APP: \n" + Arrays.toString(ipPacketBytes) + "\n");
+                        "Write ip packet from VPN to APP, write tcp packet = "+tcpPacket+", tcp loop = "+this.tcpIoLoop);
                 this.vpnOutputStream.write(ipPacketBytes);
                 this.vpnOutputStream.flush();
             } catch (IOException e) {

@@ -71,13 +71,8 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getSequenceNumber());
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
             Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
-                    "Receive tcp packet, current tcp loop status = " + this.tcpIoLoop.getStatus() + ", key = " +
-                            this.tcpIoLoop.getKey() + ", app ack number = " +
-                            inputTcpHeader.getAcknowledgementNumber() +
-                            ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber() + ", syn = " +
-                            inputTcpHeader.isSyn() + ", ack = " + inputTcpHeader.isAck() + ", psh = " +
-                            inputTcpHeader.isPsh() + ", rst = " + inputTcpHeader.isRst() + ", fin = " +
-                            inputTcpHeader.isFin());
+                    "Receive tcp packet, input tcp header = " + inputTcpHeader + ", tcp loop = " +
+                            this.tcpIoLoop);
             if (inputTcpHeader.isSyn() && !inputTcpHeader.isAck()) {
                 //Receive a syn.
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.LISTEN) {
@@ -128,28 +123,20 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
                     if (inputTcpHeader.getAcknowledgementNumber() != tcpIoLoop.getVpnToAppSequenceNumber() + 1) {
                         Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
-                                "The ack from app is not correct, app ack number = " +
-                                        inputTcpHeader.getAcknowledgementNumber() +
-                                        ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber());
+                                "The ack from app is not correct, input ack number=" +
+                                        inputTcpHeader.getAcknowledgementNumber() + ", tcp loop = " + this.tcpIoLoop);
                         continue;
                     }
-                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
-                            "Switch tcp loop to ESTABLISHED, key = " + this.tcpIoLoop.getKey() + ", app ack number = " +
-                                    inputTcpHeader.getAcknowledgementNumber() +
-                                    ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber());
                     this.tcpIoLoop.switchStatus(TcpIoLoopStatus.ESTABLISHED);
+                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                            "Switch tcp loop to ESTABLISHED, tcp loop = " + this.tcpIoLoop);
                     continue;
                 }
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
-                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
-                            "Tcp loop ESTABLISHED already, current tcp loop status = " + this.tcpIoLoop.getStatus() + ", key = " +
-                                    this.tcpIoLoop.getKey() + ", app ack number = " +
-                                    inputTcpHeader.getAcknowledgementNumber() +
-                                    ", vpn sequence number sent out = " + tcpIoLoop.getVpnToAppSequenceNumber() + ", syn = " +
-                                    inputTcpHeader.isSyn() + ", ack = " + inputTcpHeader.isAck() + ", psh = " +
-                                    inputTcpHeader.isPsh() + ", rst = " + inputTcpHeader.isRst() + ", fin = " +
-                                    inputTcpHeader.isFin());
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
+                    Log.i(TcpIoLoopAppToVpnWorker.class.getName(),
+                            "Tcp loop ESTABLISHED already, input tcp header = " + inputTcpHeader + ", tcp loop = " +
+                                    this.tcpIoLoop);
                 }
             }
         }
