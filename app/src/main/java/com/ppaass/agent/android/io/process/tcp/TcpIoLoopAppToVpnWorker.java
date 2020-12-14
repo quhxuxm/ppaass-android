@@ -1,14 +1,13 @@
 package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
-import com.ppaass.agent.android.IPpaassConstant;
 import com.ppaass.agent.android.io.process.IoLoopHolder;
 import com.ppaass.agent.android.io.protocol.ip.*;
 import com.ppaass.agent.android.io.protocol.tcp.TcpHeader;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
-import com.ppaass.kt.common.*;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.Channel;
+import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 
 import java.util.concurrent.BlockingDeque;
@@ -19,7 +18,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
     private final TcpIoLoop tcpIoLoop;
     private final Bootstrap proxyTcpBootstrap;
     private boolean alive;
-    private Channel proxyChannel = null;
+    private Channel targetChannel = null;
     private final BlockingDeque<IpPacket> appToVpnIpPacketQueue;
     private final BlockingDeque<TcpIoLoopVpntoAppData> outputDataQueue;
 
@@ -101,43 +100,38 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 //Receive a syn.
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.LISTEN) {
                     //First syn
-                    this.proxyChannel =
-                            this.proxyTcpBootstrap
-                                    .connect(IPpaassConstant.PROXY_SERVER_ADDRESS,
-                                            IPpaassConstant.PROXY_SERVER_PORT)
-                                    .syncUninterruptibly().channel();
-                    this.proxyChannel.attr(TCP_LOOP).setIfAbsent(this.tcpIoLoop);
+                    ChannelFuture connectResult = this.proxyTcpBootstrap
+                            .connect(tcpIoLoop.getDestinationAddress(), tcpIoLoop.getDestinationPort())
+                            .syncUninterruptibly();
+                    if (!connectResult.isSuccess()) {
+                        Log.e(TcpIoLoopProxyToVpnHandler.class.getName(),
+                                "Fail connect to target, input ip packet="
+                                        + inputIpPacket + " tcp loop = " + tcpIoLoop);
+                        continue;
+                    }
+                    this.targetChannel = connectResult.channel();
+                    this.targetChannel.attr(TCP_LOOP).setIfAbsent(this.tcpIoLoop);
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(inputTcpHeader.getSequenceNumber() + 1);
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
-                    MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
-                            SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
-                            this.tcpIoLoop.getDestinationAddress().getHostAddress(),
-                            this.tcpIoLoop.getDestinationPort(),
-                            AgentMessageBodyType.CONNECT_WITH_KEEP_ALIVE, new byte[]{}
-                    );
-                    Message<AgentMessageBodyType> agentMessage = new Message<>(SerializerKt.generateUuidInBytes(),
-                            EncryptionType.Companion.choose(), agentMessageBody);
-                    proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
+                    this.tcpIoLoop.switchStatus(TcpIoLoopStatus.SYN_RECEIVED);
+                    TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
+                    outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_SYN_ACK);
+                    Log.d(TcpIoLoopProxyToVpnHandler.class.getName(),
+                            "Receive proxy connect success response, tcp loop = " + tcpIoLoop + ", tcp output data = " +
+                                    outputData);
+                    this.tcpIoLoop.offerOutputData(outputData);
                     continue;
                 }
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
                     //Send data
-                    if (this.proxyChannel == null) {
+                    if (this.targetChannel == null) {
                         Log.e(TcpIoLoopAppToVpnWorker.class.getName(), "The proxy channel is null.");
                         throw new IllegalStateException("The proxy channel is null.");
                     }
-                    MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
-                            SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
-                            this.tcpIoLoop.getDestinationAddress().getHostAddress(),
-                            this.tcpIoLoop.getDestinationPort(),
-                            AgentMessageBodyType.TCP_DATA, inputTcpPacket.getData()
-                    );
-                    Message<AgentMessageBodyType> agentMessage = new Message<>(SerializerKt.generateUuidInBytes(),
-                            EncryptionType.Companion.choose(), agentMessageBody);
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
                             inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
-                    this.proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
+                    this.targetChannel.writeAndFlush(inputTcpPacket.getData()).syncUninterruptibly();
                     continue;
                 }
             }
@@ -158,23 +152,14 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 if (inputTcpHeader.isPsh()) {
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
                     if (inputTcpPacket.getData().length > 0) {
-                        MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
-                                SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
-                                this.tcpIoLoop.getDestinationAddress().getHostAddress(),
-                                this.tcpIoLoop.getDestinationPort(),
-                                AgentMessageBodyType.TCP_DATA, inputTcpPacket.getData()
-                        );
-                        Message<AgentMessageBodyType> agentMessage = new Message<>(SerializerKt.generateUuidInBytes(),
-                                EncryptionType.Companion.choose(), agentMessageBody);
                         this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
                                 inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length);
                         TcpIoLoopVpntoAppData ackData = new TcpIoLoopVpntoAppData();
                         ackData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
                         Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                                 "There is data psh ack packet, write it to proxy, input ip packet = " +
-                                        inputIpPacket + ", tcp loop = " + this.tcpIoLoop + ", agent message = " +
-                                        agentMessage);
-                        proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
+                                        inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
+                        targetChannel.writeAndFlush(inputTcpPacket.getData()).syncUninterruptibly();
                     }
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Receive push, input ip packet =" + inputIpPacket + ",tcp loop = " + this.tcpIoLoop);
@@ -183,23 +168,14 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
                     if (inputTcpPacket.getData().length > 0) {
-                        MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
-                                SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
-                                this.tcpIoLoop.getDestinationAddress().getHostAddress(),
-                                this.tcpIoLoop.getDestinationPort(),
-                                AgentMessageBodyType.TCP_DATA, inputTcpPacket.getData()
-                        );
-                        Message<AgentMessageBodyType> agentMessage = new Message<>(SerializerKt.generateUuidInBytes(),
-                                EncryptionType.Companion.choose(), agentMessageBody);
                         this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
                                 inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
                         TcpIoLoopVpntoAppData ackData = new TcpIoLoopVpntoAppData();
                         ackData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
                         Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                                 "Receive ack packet along with data, write it to proxy, input ip packet = " +
-                                        inputIpPacket + ", tcp loop = " + this.tcpIoLoop + ", agent message = " +
-                                        agentMessage);
-                        proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
+                                        inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
+                        targetChannel.writeAndFlush(inputTcpPacket.getData()).syncUninterruptibly();
                     }
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Tcp loop ESTABLISHED already, input ip packet =" + inputIpPacket + ", tcp loop = " +
@@ -218,7 +194,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 }
             }
             if (inputTcpHeader.isFin()) {
-                if (this.proxyChannel == null) {
+                if (this.targetChannel == null) {
                     Log.e(TcpIoLoopAppToVpnWorker.class.getName(), "The proxy channel is null.");
                     throw new IllegalStateException("The proxy channel is null.");
                 }
@@ -235,7 +211,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                                     inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
                     continue;
                 }
-                proxyChannel.close().syncUninterruptibly().addListener((ChannelFutureListener) future -> {
+                targetChannel.close().syncUninterruptibly().addListener((ChannelFutureListener) future -> {
                     if (!future.isSuccess()) {
                         return;
                     }

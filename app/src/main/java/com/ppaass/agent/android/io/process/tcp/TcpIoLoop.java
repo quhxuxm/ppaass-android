@@ -68,15 +68,15 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
 
     @Override
     public void offerInputIpPacket(IpPacket ipPacket) {
-        Log.d(TcpIoLoop.class.getName(),
-                "Offer ip packet to TcpIoLoopAppToVpnWorker, ip packet = " + ipPacket + ", tcp loop = " + this);
+//        Log.d(TcpIoLoop.class.getName(),
+//                "Offer ip packet to TcpIoLoopAppToVpnWorker, ip packet = " + ipPacket + ", tcp loop = " + this);
         this.appToVpnWorker.offerIpPacket(ipPacket);
     }
 
     @Override
     public void offerOutputData(TcpIoLoopVpntoAppData outputData) {
-        Log.d(TcpIoLoop.class.getName(),
-                "Offer output data to TcpIoLoopVpnToAppWorker, output data = " + outputData + ", tcp loop = " + this);
+//        Log.d(TcpIoLoop.class.getName(),
+//                "Offer output data to TcpIoLoopVpnToAppWorker, output data = " + outputData + ", tcp loop = " + this);
         this.vpnToAppWorker.offerOutputData(outputData);
     }
 

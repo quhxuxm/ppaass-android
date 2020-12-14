@@ -11,6 +11,7 @@ import com.ppaass.agent.android.io.process.IoLoopHolder;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoop;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoopProxyToVpnHandler;
+import com.ppaass.agent.android.io.process.tcp.TcpIoLoopTargetToVpnHandler;
 import com.ppaass.agent.android.io.process.udp.UdpIoLoop;
 import com.ppaass.agent.android.io.protocol.ip.*;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
@@ -153,12 +154,13 @@ public class PpaassVpnService extends VpnService {
             protected void initChannel(SocketChannel proxyChannel) {
                 ChannelPipeline proxyChannelPipeline = proxyChannel.pipeline();
                 // addLast(Lz4FrameDecoder())
-                proxyChannelPipeline.addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
-                proxyChannelPipeline.addLast(new ProxyMessageDecoder(agentPrivateKey));
-                proxyChannelPipeline.addLast(new TcpIoLoopProxyToVpnHandler());
+//                proxyChannelPipeline.addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
+//                proxyChannelPipeline.addLast(new ProxyMessageDecoder(agentPrivateKey));
+//                proxyChannelPipeline.addLast(new TcpIoLoopProxyToVpnHandler());
+                proxyChannelPipeline.addLast(new TcpIoLoopTargetToVpnHandler());
                 // addLast(Lz4FrameEncoder())
-                proxyChannelPipeline.addLast(new LengthFieldPrepender(4));
-                proxyChannelPipeline.addLast(new AgentMessageEncoder(proxyPublicKey));
+//                proxyChannelPipeline.addLast(new LengthFieldPrepender(4));
+//                proxyChannelPipeline.addLast(new AgentMessageEncoder(proxyPublicKey));
             }
         });
         return proxyBootstrap;
