@@ -107,9 +107,8 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                                             IPpaassConstant.PROXY_SERVER_PORT)
                                     .syncUninterruptibly().channel();
                     this.proxyChannel.attr(TCP_LOOP).setIfAbsent(this.tcpIoLoop);
-                    tcpIoLoop.setVpnToAppAcknowledgementNumber(inputTcpHeader.getSequenceNumber() + 1);
-                    //Just make sure it is a increase.
-                    tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+                    this.tcpIoLoop.setVpnToAppAcknowledgementNumber(inputTcpHeader.getSequenceNumber() + 1);
+                    this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
                     MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
                             SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
                             this.tcpIoLoop.getDestinationAddress().getHostAddress(),
@@ -137,15 +136,15 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                             EncryptionType.Companion.choose(), agentMessageBody);
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
                             inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
-                    this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+                    this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
                     this.proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
                     continue;
                 }
             }
             if (!inputTcpHeader.isSyn() && inputTcpHeader.isAck()) {
-                //Receive a ack
+                //ACK for SYN ACK
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
-                    if (inputTcpHeader.getAcknowledgementNumber() != tcpIoLoop.getVpnToAppSequenceNumber() + 1) {
+                    if (inputTcpHeader.getSequenceNumber() != tcpIoLoop.getVpnToAppAcknowledgementNumber()) {
                         Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
                                 "The ack number from app is not correct, input ip packet=" +
                                         inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
@@ -155,28 +154,11 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
                                     this.tcpIoLoop);
-                    if (inputTcpPacket.getData().length > 0) {
-                        MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
-                                SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
-                                this.tcpIoLoop.getDestinationAddress().getHostAddress(),
-                                this.tcpIoLoop.getDestinationPort(),
-                                AgentMessageBodyType.TCP_DATA, inputTcpPacket.getData()
-                        );
-                        Message<AgentMessageBodyType> agentMessage = new Message<>(SerializerKt.generateUuidInBytes(),
-                                EncryptionType.Companion.choose(), agentMessageBody);
-                        this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
-                                inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
-                        this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber() + 1);
-                        Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                                "There is data in ack packet when do hand shake (1), write it to proxy, input ip packet = " +
-                                        inputIpPacket + ", tcp loop = " + this.tcpIoLoop + ", agent message = " +
-                                        agentMessage);
-                        proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
-                    }
                     continue;
                 }
-                if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
-                    this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+                if (inputTcpHeader.isPsh()) {
+                    this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
+                    //PSH ACK
                     if (inputTcpPacket.getData().length > 0) {
                         MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
                                 SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
@@ -188,18 +170,44 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                                 EncryptionType.Companion.choose(), agentMessageBody);
                         this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
                                 inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
-
+                        TcpIoLoopVpntoAppData ackData = new TcpIoLoopVpntoAppData();
+                        ackData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
                         Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                                "There is data in ack packet when do hand shake (2), write it to proxy, input ip packet = " +
+                                "There is data psh ack packet, write it to proxy, input ip packet = " +
                                         inputIpPacket + ", tcp loop = " + this.tcpIoLoop + ", agent message = " +
                                         agentMessage);
                         proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
                     }
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                            "Tcp loop ESTABLISHED already, input ip packet =" + inputIpPacket + ", tcp loop = " +
-                                    this.tcpIoLoop);
+                            "Receive push, input ip packet =" + inputIpPacket + ",tcp loop = " + this.tcpIoLoop);
                     continue;
                 }
+//                if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
+//                    this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
+//                    if (inputTcpPacket.getData().length > 0) {
+//                        MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
+//                                SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
+//                                this.tcpIoLoop.getDestinationAddress().getHostAddress(),
+//                                this.tcpIoLoop.getDestinationPort(),
+//                                AgentMessageBodyType.TCP_DATA, inputTcpPacket.getData()
+//                        );
+//                        Message<AgentMessageBodyType> agentMessage = new Message<>(SerializerKt.generateUuidInBytes(),
+//                                EncryptionType.Companion.choose(), agentMessageBody);
+//                        this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
+//                                inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
+//                        TcpIoLoopVpntoAppData ackData = new TcpIoLoopVpntoAppData();
+//                        ackData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
+//                        Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
+//                                "There is data in ack packet when do hand shake (2), write it to proxy, input ip packet = " +
+//                                        inputIpPacket + ", tcp loop = " + this.tcpIoLoop + ", agent message = " +
+//                                        agentMessage);
+//                        proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
+//                    }
+//                    Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
+//                            "Tcp loop ESTABLISHED already, input ip packet =" + inputIpPacket + ", tcp loop = " +
+//                                    this.tcpIoLoop);
+//                    continue;
+//                }
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.LAST_ACK) {
                     if (inputTcpHeader.getSequenceNumber() != this.tcpIoLoop.getVpnToAppSequenceNumber() + 1) {
                         Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
@@ -211,23 +219,6 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     continue;
                 }
             }
-            if (inputTcpHeader.isPsh()) {
-                MessageBody<AgentMessageBodyType> agentMessageBody = new MessageBody<>(
-                        SerializerKt.generateUuid(), IPpaassConstant.USER_TOKEN,
-                        this.tcpIoLoop.getDestinationAddress().getHostAddress(),
-                        this.tcpIoLoop.getDestinationPort(),
-                        AgentMessageBodyType.TCP_DATA, inputTcpPacket.getData()
-                );
-                Message<AgentMessageBodyType> agentMessage = new Message<>(SerializerKt.generateUuidInBytes(),
-                        EncryptionType.Companion.choose(), agentMessageBody);
-                this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
-                        inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
-                this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber() + 1);
-                proxyChannel.writeAndFlush(agentMessage).syncUninterruptibly();
-                Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                        "Receive push, input ip packet =" + inputIpPacket + ",tcp loop = " + this.tcpIoLoop);
-                continue;
-            }
             if (inputTcpHeader.isFin()) {
                 if (this.proxyChannel == null) {
                     Log.e(TcpIoLoopAppToVpnWorker.class.getName(), "The proxy channel is null.");
@@ -236,7 +227,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 TcpIoLoopVpntoAppData finAckOutputData = new TcpIoLoopVpntoAppData();
                 finAckOutputData.setCommand(TcpIoLoopVpnToAppCommand.DO_FIN_ACK);
                 this.tcpIoLoop.setVpnToAppAcknowledgementNumber(inputTcpHeader.getSequenceNumber() + 1);
-                this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+                this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
                 this.tcpIoLoop.switchStatus(TcpIoLoopStatus.CLOSE_WAIT);
                 try {
                     this.outputDataQueue.put(finAckOutputData);
@@ -253,7 +244,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     TcpIoLoopVpntoAppData lastAckOutputData = new TcpIoLoopVpntoAppData();
                     lastAckOutputData.setCommand(TcpIoLoopVpnToAppCommand.DO_LAST_ACK);
                     try {
-                        this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+                        this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber());
                         this.tcpIoLoop
                                 .setVpnToAppAcknowledgementNumber(this.tcpIoLoop.getVpnToAppAcknowledgementNumber());
                         this.outputDataQueue.put(lastAckOutputData);

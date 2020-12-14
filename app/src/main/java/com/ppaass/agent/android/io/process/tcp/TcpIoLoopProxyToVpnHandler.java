@@ -18,7 +18,7 @@ public class TcpIoLoopProxyToVpnHandler extends SimpleChannelInboundHandler<Mess
     protected void channelRead0(ChannelHandlerContext proxyChannelContext, Message<ProxyMessageBodyType> proxyMessage)
             throws Exception {
         Channel proxyChannel = proxyChannelContext.channel();
-        TcpIoLoop tcpIoLoop = proxyChannel.attr(IIoConstant.TCP_LOOP).get();
+        final TcpIoLoop tcpIoLoop = proxyChannel.attr(IIoConstant.TCP_LOOP).get();
         ProxyMessageBodyType proxyMessageBodyType = proxyMessage.getBody().getBodyType();
         if (proxyMessageBodyType == ProxyMessageBodyType.CONNECT_FAIL) {
             Log.e(TcpIoLoopProxyToVpnHandler.class.getName(),
@@ -42,6 +42,8 @@ public class TcpIoLoopProxyToVpnHandler extends SimpleChannelInboundHandler<Mess
             TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
             outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
             outputData.setData(proxyMessage.getBody().getData());
+//            tcpIoLoop.setVpnToAppSequenceNumber(
+//                    tcpIoLoop.getAppToVpnAcknowledgementNumber() + proxyMessage.getBody().getData().length + 1);
             Log.d(TcpIoLoopProxyToVpnHandler.class.getName(),
                     "Receive proxy data response, tcp loop = " + tcpIoLoop + ", tcp output data = " +
                             outputData);
