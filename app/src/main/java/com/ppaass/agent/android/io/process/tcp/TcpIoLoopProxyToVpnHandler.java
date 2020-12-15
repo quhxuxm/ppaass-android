@@ -42,8 +42,9 @@ public class TcpIoLoopProxyToVpnHandler extends SimpleChannelInboundHandler<Mess
             TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
             outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
             outputData.setData(proxyMessage.getBody().getData());
-//            tcpIoLoop.setVpnToAppSequenceNumber(
-//                    tcpIoLoop.getAppToVpnAcknowledgementNumber() + proxyMessage.getBody().getData().length + 1);
+            tcpIoLoop.setVpnToAppSequenceNumber(
+                    tcpIoLoop.getVpnToAppSequenceNumber() + proxyMessage.getBody().getData().length);
+            tcpIoLoop.setVpnToAppAcknowledgementNumber(tcpIoLoop.getVpnToAppAcknowledgementNumber());
             Log.d(TcpIoLoopProxyToVpnHandler.class.getName(),
                     "Receive proxy data response, tcp loop = " + tcpIoLoop + ", tcp output data = " +
                             outputData);
