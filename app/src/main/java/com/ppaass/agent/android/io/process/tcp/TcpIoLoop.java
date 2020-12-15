@@ -21,6 +21,7 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
     private final int destinationPort;
     private final String key;
     private TcpIoLoopStatus status;
+    private TcpIoLoopOutputStatus outputStatus;
     private final Bootstrap proxyTcpBootstrap;
     private TcpIoLoopAppToVpnWorker appToVpnWorker;
     private TcpIoLoopVpnToAppWorker vpnToAppWorker;
@@ -42,6 +43,7 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
         this.proxyTcpBootstrap = proxyTcpBootstrap;
         this.vpnOutputStream = vpnOutputStream;
         this.status = TcpIoLoopStatus.LISTEN;
+        this.outputStatus = TcpIoLoopOutputStatus.NONE;
         this.inputIpPacketQueue = new LinkedBlockingDeque<>();
         this.outputDataQueue = new LinkedBlockingDeque<>();
     }
@@ -92,6 +94,17 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
             return;
         }
         this.status = inputStatus;
+    }
+
+    public synchronized void switchOutputStatus(TcpIoLoopOutputStatus outputStatus) {
+        if (outputStatus == null) {
+            return;
+        }
+        this.outputStatus = outputStatus;
+    }
+
+    public TcpIoLoopOutputStatus getOutputStatus() {
+        return outputStatus;
     }
 
     public synchronized long getAppToVpnSequenceNumber() {
