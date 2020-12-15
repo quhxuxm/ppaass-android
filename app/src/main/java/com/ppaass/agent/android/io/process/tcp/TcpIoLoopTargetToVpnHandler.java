@@ -27,16 +27,20 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         tcpIoLoop.setVpnToAppSequenceNumber(
                 tcpIoLoop.getAppToVpnAcknowledgementNumber());
         Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
-                "Receive target data, tcp loop = " + tcpIoLoop + ", tcp output data command = " +
+                "Receive TARGET data, tcp loop = " + tcpIoLoop + ", tcp output data command = " +
                         outputData.getCommand());
         Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
-                "Target data: \n" + ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(outputData.getData())) + "\n");
+                "TARGET data: \n" + ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(outputData.getData())) + "\n");
         tcpIoLoop.offerOutputData(outputData);
         ReferenceCountUtil.release(targetMessage);
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext targetChannelContext, Throwable cause) throws Exception {
-        Log.e(TcpIoLoopTargetToVpnHandler.class.getName(), "Exception happen: ", cause);
+        Channel targetChannel = targetChannelContext.channel();
+        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
+        Log.e(TcpIoLoopTargetToVpnHandler.class.getName(), "Exception happen on tcp loop, tcp loop =  " + tcpIoLoop,
+                cause);
+        tcpIoLoop.stop();
     }
 }

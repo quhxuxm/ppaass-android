@@ -242,10 +242,6 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 }
             }
             if (inputTcpHeader.isFin()) {
-                if (this.targetChannel == null) {
-                    Log.e(TcpIoLoopAppToVpnWorker.class.getName(), "The proxy channel is null.");
-                    throw new IllegalStateException("The proxy channel is null.");
-                }
                 TcpIoLoopVpntoAppData finAckOutputData = new TcpIoLoopVpntoAppData();
                 finAckOutputData.setCommand(TcpIoLoopVpnToAppCommand.DO_FIN_ACK);
                 this.tcpIoLoop.setVpnToAppAcknowledgementNumber(this.tcpIoLoop.getAppToVpnSequenceNumber() + 1);
@@ -257,6 +253,9 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Fail to send FIN_ACK to app, input ip packet =" +
                                     inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
+                    continue;
+                }
+                if (targetChannel == null) {
                     continue;
                 }
                 targetChannel.close().syncUninterruptibly().addListener((ChannelFutureListener) future -> {

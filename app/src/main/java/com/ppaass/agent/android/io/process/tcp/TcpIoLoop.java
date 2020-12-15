@@ -1,7 +1,7 @@
 package com.ppaass.agent.android.io.process.tcp;
 
-import android.util.Log;
 import com.ppaass.agent.android.io.process.IIoLoop;
+import com.ppaass.agent.android.io.process.IoLoopHolder;
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.bootstrap.Bootstrap;
 
@@ -84,6 +84,7 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
     public void stop() {
         this.appToVpnWorker.stop();
         this.vpnToAppWorker.stop();
+        IoLoopHolder.INSTANCE.getIoLoops().remove(this.getKey());
     }
 
     public synchronized void switchStatus(TcpIoLoopStatus inputStatus) {
