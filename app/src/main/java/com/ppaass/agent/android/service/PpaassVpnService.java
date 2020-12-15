@@ -4,20 +4,16 @@ import android.content.Intent;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
-import com.ppaass.agent.android.IPpaassConstant;
 import com.ppaass.agent.android.R;
 import com.ppaass.agent.android.io.process.IIoLoop;
 import com.ppaass.agent.android.io.process.IoLoopHolder;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoop;
-import com.ppaass.agent.android.io.process.tcp.TcpIoLoopProxyToVpnHandler;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoopTargetToVpnHandler;
 import com.ppaass.agent.android.io.process.udp.UdpIoLoop;
 import com.ppaass.agent.android.io.protocol.ip.*;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import com.ppaass.agent.android.io.protocol.udp.UdpPacket;
-import com.ppaass.kt.common.AgentMessageEncoder;
-import com.ppaass.kt.common.ProxyMessageDecoder;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -25,13 +21,8 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.PreferHeapByteBufAllocator;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
-import io.netty.handler.codec.LengthFieldPrepender;
 
-import java.io.FileDescriptor;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
 import java.net.InetAddress;
 
 import static com.ppaass.agent.android.IPpaassConstant.VPN_ADDRESS;
@@ -39,24 +30,57 @@ import static com.ppaass.agent.android.IPpaassConstant.VPN_ROUTE;
 
 public class PpaassVpnService extends VpnService {
     private static final int VPN_BUFFER_SIZE = 32768;
+    private Bootstrap proxyTcpBootstrap;
+    private Bootstrap proxyUdpBootstrap;
+    private FileInputStream vpnInputStream;
+    private FileOutputStream vpnOutputStream;
+    private ParcelFileDescriptor vpnInterface;
+    private boolean alive;
 
     @Override
-    public int onStartCommand(final Intent intent, int flags, int startId) {
-        Thread vpnThread = new Thread(() -> {
+    public void onCreate() {
+        super.onCreate();
+        final byte[] agentPrivateKeyBytes;
+        try {
+            InputStream agentPrivateKeyStream =
+                    this.getResources().openRawResource(R.raw.agentprivatekey);
+            agentPrivateKeyBytes = new byte[agentPrivateKeyStream.available()];
+            int readAgentPrivateKeyBytesResult = agentPrivateKeyStream.read(agentPrivateKeyBytes);
+            if (readAgentPrivateKeyBytesResult < 0) {
+                throw new RuntimeException();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        final byte[] proxyPublicKeyBytes;
+        try {
+            InputStream proxyPublicKeyStream =
+                    this.getResources().openRawResource(R.raw.proxypublickey);
+            proxyPublicKeyBytes = new byte[proxyPublicKeyStream.available()];
+            int readProxyPublicKeyBytesResult = proxyPublicKeyStream.read(proxyPublicKeyBytes);
+            if (readProxyPublicKeyBytesResult < 0) {
+                throw new RuntimeException();
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        proxyTcpBootstrap =
+                PpaassVpnService.this.createProxyBootstrap(proxyPublicKeyBytes, agentPrivateKeyBytes);
+        proxyUdpBootstrap =
+                PpaassVpnService.this.createProxyBootstrap(proxyPublicKeyBytes, agentPrivateKeyBytes);
+        if (this.vpnInterface == null) {
             Builder vpnBuilder = new Builder();
             vpnBuilder.addAddress(VPN_ADDRESS, 32);
             vpnBuilder.addRoute(VPN_ROUTE, 0);
-            ParcelFileDescriptor vpnInterface = vpnBuilder.setSession(getString(R.string.app_name)).establish();
+            this.vpnInterface =
+                    vpnBuilder.setSession(getString(R.string.app_name)).establish();
             final FileDescriptor vpnFileDescriptor = vpnInterface.getFileDescriptor();
-            final FileInputStream vpnInputStream = new FileInputStream(vpnFileDescriptor);
-            FileOutputStream vpnOutputStream = new FileOutputStream(vpnFileDescriptor);
-            byte[] agentPrivateKey = intent.getByteArrayExtra(IPpaassConstant.AGENT_PRIVATE_KEY_INTENT_DATA_NAME);
-            byte[] proxyPublicKey = intent.getByteArrayExtra(IPpaassConstant.PROXY_PUBLIC_KEY_INTENT_DATA_NAME);
-            final Bootstrap proxyTcpBootstrap =
-                    PpaassVpnService.this.createProxyBootstrap(proxyPublicKey, agentPrivateKey, vpnOutputStream);
-            final Bootstrap proxyUdpBootstrap =
-                    PpaassVpnService.this.createProxyBootstrap(proxyPublicKey, agentPrivateKey, vpnOutputStream);
-            while (true) {
+            this.vpnInputStream = new FileInputStream(vpnFileDescriptor);
+            this.vpnOutputStream = new FileOutputStream(vpnFileDescriptor);
+        }
+        this.alive = true;
+        Thread vpnThread = new Thread(() -> {
+            while (alive) {
                 byte[] buffer = new byte[VPN_BUFFER_SIZE];
                 try {
                     int readResult = vpnInputStream.read(buffer);
@@ -87,7 +111,8 @@ public class PpaassVpnService extends VpnService {
                                             destinationPort, key, proxyTcpBootstrap, vpnOutputStream);
                                     result.init();
                                     result.start();
-                                    Log.d(PpaassVpnService.class.getName(),"Initialize tcp loop, tcp packet="+tcpPacket+", tcp loop = "+result);
+                                    Log.d(PpaassVpnService.class.getName(),
+                                            "Initialize tcp loop, tcp packet=" + tcpPacket + ", tcp loop = " + result);
                                     return result;
                                 });
                         IIoLoop<?> ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);
@@ -131,11 +156,14 @@ public class PpaassVpnService extends VpnService {
             }
         });
         vpnThread.start();
+    }
+
+    @Override
+    public int onStartCommand(final Intent intent, int flags, int startId) {
         return START_STICKY;
     }
 
-    private Bootstrap createProxyBootstrap(byte[] proxyPublicKey, byte[] agentPrivateKey,
-                                           FileOutputStream vpnOutputStream) {
+    private Bootstrap createProxyBootstrap(byte[] proxyPublicKey, byte[] agentPrivateKey) {
         Bootstrap proxyBootstrap = new Bootstrap();
         proxyBootstrap.group(new NioEventLoopGroup());
         proxyBootstrap.channelFactory(() -> new VpnNioSocketChannel(PpaassVpnService.this));
@@ -164,5 +192,22 @@ public class PpaassVpnService extends VpnService {
             }
         });
         return proxyBootstrap;
+    }
+
+    @Override
+    public void onDestroy() {
+        this.alive = false;
+        IoLoopHolder.INSTANCE.getIoLoops().forEach((loopKey, loop) -> {
+            loop.stop();
+            Log.d(PpaassVpnService.class.getName(), "Destroy IOLoop:  " + loopKey);
+        });
+        try {
+            this.vpnInputStream.close();
+            this.vpnOutputStream.close();
+            this.vpnInterface.close();
+            Log.d(PpaassVpnService.class.getName(), "Close vpn service files.");
+        } catch (IOException e) {
+            Log.e(PpaassVpnService.class.getName(), "Close vpn service files exception happen.", e);
+        }
     }
 }

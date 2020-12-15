@@ -6,6 +6,9 @@ import com.ppaass.agent.android.io.protocol.ip.*;
 import com.ppaass.agent.android.io.protocol.tcp.TcpHeader;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
@@ -78,7 +81,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
             if ((inputTcpHeader.getSequenceNumber() == this.tcpIoLoop.getAppToVpnSequenceNumber() &&
                     inputTcpHeader.getAcknowledgementNumber() == this.tcpIoLoop.getAppToVpnAcknowledgementNumber()) &&
-                    this.tcpIoLoop.getStatus() != TcpIoLoopStatus.ESTABLISHED) {
+                    this.tcpIoLoop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
                 Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                         "Ignore duplicate tcp packet, input ip packet = " + inputIpPacket + ", tcp loop = " +
                                 this.tcpIoLoop);
@@ -131,7 +134,10 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
                             inputTcpHeader.getSequenceNumber() + 1 + inputTcpPacket.getData().length);
                     this.tcpIoLoop.setVpnToAppSequenceNumber(inputTcpHeader.getAcknowledgementNumber());
-                    this.targetChannel.writeAndFlush(inputTcpPacket.getData()).syncUninterruptibly();
+                    ByteBuf dataSendToTarget=Unpooled.wrappedBuffer(inputTcpPacket.getData());
+                    Log.d(TcpIoLoopAppToVpnWorker.class.getName(), "SYN(ESTABLISHED) DATA:\n"+ ByteBufUtil.prettyHexDump(
+                            dataSendToTarget) +"\n");
+                    this.targetChannel.writeAndFlush(dataSendToTarget).syncUninterruptibly();
                     continue;
                 }
             }
@@ -159,7 +165,9 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                         Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                                 "There is data psh ack packet, write it to proxy, input ip packet = " +
                                         inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
-                        targetChannel.writeAndFlush(inputTcpPacket.getData()).syncUninterruptibly();
+                        ByteBuf dataSendToTarget=Unpooled.wrappedBuffer(inputTcpPacket.getData());
+                        Log.d(TcpIoLoopAppToVpnWorker.class.getName(), "PSH DATA:\n"+ ByteBufUtil.prettyHexDump(dataSendToTarget) +"\n");
+                        targetChannel.writeAndFlush(dataSendToTarget).syncUninterruptibly();
                     }
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Receive push, input ip packet =" + inputIpPacket + ",tcp loop = " + this.tcpIoLoop);
@@ -175,7 +183,10 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                         Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                                 "Receive ack packet along with data, write it to proxy, input ip packet = " +
                                         inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
-                        targetChannel.writeAndFlush(inputTcpPacket.getData()).syncUninterruptibly();
+                        ByteBuf dataSendToTarget=Unpooled.wrappedBuffer(inputTcpPacket.getData());
+                        Log.d(TcpIoLoopAppToVpnWorker.class.getName(), "ACK(ESTABLISH) DATA:\n"+ ByteBufUtil.prettyHexDump(
+                                dataSendToTarget) +"\n");
+                        targetChannel.writeAndFlush(dataSendToTarget).syncUninterruptibly();
                     }
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Tcp loop ESTABLISHED already, input ip packet =" + inputIpPacket + ", tcp loop = " +
