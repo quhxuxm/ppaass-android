@@ -79,19 +79,16 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             }
             TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
             TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
-            if ((inputTcpHeader.getSequenceNumber() == this.tcpIoLoop.getAppToVpnSequenceNumber() &&
-                    inputTcpHeader.getAcknowledgementNumber() == this.tcpIoLoop.getAppToVpnAcknowledgementNumber()) &&
-                    this.tcpIoLoop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
-                Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                        "Ignore duplicate tcp packet, input ip packet = " + inputIpPacket + ", tcp loop = " +
-                                this.tcpIoLoop);
-                continue;
-            }
+//            if ((inputTcpHeader.getSequenceNumber() == this.tcpIoLoop.getAppToVpnSequenceNumber() &&
+//                    inputTcpHeader.getAcknowledgementNumber() == this.tcpIoLoop.getAppToVpnAcknowledgementNumber()) &&
+//                    this.tcpIoLoop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
+//                Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
+//                        "Ignore duplicate tcp packet, input ip packet = " + inputIpPacket + ", tcp loop = " +
+//                                this.tcpIoLoop);
+//                continue;
+//            }
             this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpHeader.getSequenceNumber());
             this.tcpIoLoop.setAppToVpnAcknowledgementNumber(inputTcpHeader.getAcknowledgementNumber());
-            Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                    "Receive tcp packet, input ip packet = " + inputIpPacket + ", tcp loop = " +
-                            this.tcpIoLoop);
             if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.CLOSED) {
                 Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
                         "Tcp loop closed already, input ip packet =" +
@@ -178,8 +175,6 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                         }
                         targetChannel.writeAndFlush(dataSendToTarget).syncUninterruptibly();
                     }
-                    Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                            "Receive push, input ip packet =" + inputIpPacket + ",tcp loop = " + this.tcpIoLoop);
                     continue;
                 }
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.ESTABLISHED) {
@@ -225,9 +220,6 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                                         dataSendToTarget) + "\n");
                         targetChannel.writeAndFlush(dataSendToTarget).syncUninterruptibly();
                     }
-                    Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
-                            "Tcp loop ESTABLISHED already, input ip packet =" + inputIpPacket + ", tcp loop = " +
-                                    this.tcpIoLoop);
                     continue;
                 }
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.LAST_ACK) {

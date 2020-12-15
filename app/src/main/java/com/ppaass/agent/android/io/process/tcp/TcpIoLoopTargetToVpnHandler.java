@@ -27,8 +27,8 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         tcpIoLoop.setVpnToAppSequenceNumber(
                 tcpIoLoop.getAppToVpnAcknowledgementNumber());
         Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
-                "Receive TARGET data, tcp loop = " + tcpIoLoop + ", tcp output data command = " +
-                        outputData.getCommand());
+                "Receive TARGET data, tcp loop = " + tcpIoLoop + ", tcp output data = " +
+                        outputData);
         Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
                 "TARGET data: \n" + ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(outputData.getData())) + "\n");
         tcpIoLoop.offerOutputData(outputData);
