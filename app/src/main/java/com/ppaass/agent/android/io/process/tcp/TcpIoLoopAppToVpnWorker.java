@@ -4,6 +4,7 @@ import android.util.Log;
 import com.ppaass.agent.android.io.process.IoLoopHolder;
 import com.ppaass.agent.android.io.protocol.ip.*;
 import com.ppaass.agent.android.io.protocol.tcp.TcpHeader;
+import com.ppaass.agent.android.io.protocol.tcp.TcpHeaderOption;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
@@ -114,6 +115,17 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     this.targetChannel.attr(TCP_LOOP).setIfAbsent(this.tcpIoLoop);
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(this.tcpIoLoop.getAppToVpnSequenceNumber() + 1);
                     this.tcpIoLoop.setVpnToAppSequenceNumber(0);
+                    TcpHeaderOption mssOption = null;
+                    for (TcpHeaderOption option : inputTcpHeader.getOptions()) {
+                        if (option.getKind() == TcpHeaderOption.Kind.MSS) {
+                            mssOption = option;
+                            break;
+                        }
+                    }
+                    if (mssOption != null) {
+                        ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
+                        this.tcpIoLoop.setMss(mssOptionBuf.readUnsignedShort());
+                    }
                     this.tcpIoLoop.switchStatus(TcpIoLoopStatus.SYN_RECEIVED);
                     TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
                     outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_SYN_ACK);

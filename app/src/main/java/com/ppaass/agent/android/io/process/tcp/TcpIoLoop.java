@@ -31,6 +31,7 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
     private long appToVpnAcknowledgementNumber;
     private long vpnToAppSequenceNumber;
     private long vpnToAppAcknowledgementNumber;
+    private int mss;
 
     public TcpIoLoop(InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort, int destinationPort,
                      String key, Bootstrap proxyTcpBootstrap, FileOutputStream vpnOutputStream) {
@@ -44,6 +45,7 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
         this.status = TcpIoLoopStatus.CLOSED;
         this.inputIpPacketQueue = new LinkedBlockingDeque<>();
         this.outputDataQueue = new LinkedBlockingDeque<>();
+        this.mss = -1;
     }
 
     @Override
@@ -78,6 +80,14 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
 //        Log.d(TcpIoLoop.class.getName(),
 //                "Offer output data to TcpIoLoopVpnToAppWorker, output data = " + outputData + ", tcp loop = " + this);
         this.vpnToAppWorker.offerOutputData(outputData);
+    }
+
+    public void setMss(int mss) {
+        this.mss = mss;
+    }
+
+    public int getMss() {
+        return mss;
     }
 
     @Override
@@ -159,6 +169,7 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
                 ", appToVpnAcknowledgementNumber=" + appToVpnAcknowledgementNumber +
                 ", vpnToAppSequenceNumber=" + vpnToAppSequenceNumber +
                 ", vpnToAppAcknowledgementNumber=" + vpnToAppAcknowledgementNumber +
+                ", mss=" + mss +
                 '}';
     }
 }

@@ -2,8 +2,12 @@ package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
 import com.ppaass.agent.android.io.protocol.ip.*;
+import com.ppaass.agent.android.io.protocol.tcp.TcpHeaderOption;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacketBuilder;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -73,7 +77,10 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
                     break;
                 }
                 case DO_SYN_ACK: {
-                    tcpPacketBuilder.ack(true).syn(true);
+                    ByteBuf mssValueBuf = Unpooled.buffer();
+                    mssValueBuf.writeShort(tcpIoLoop.getMss());
+                    tcpPacketBuilder.ack(true).syn(true).addOption(new TcpHeaderOption(TcpHeaderOption.Kind.MSS,
+                            ByteBufUtil.getBytes(mssValueBuf)));
                     break;
                 }
                 case DO_RST: {
