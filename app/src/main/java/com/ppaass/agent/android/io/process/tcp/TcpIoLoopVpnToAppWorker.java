@@ -72,6 +72,10 @@ class TcpIoLoopVpnToAppWorker implements Runnable {
                     tcpPacketBuilder.ack(true);
                     break;
                 }
+                case DO_PSH_ACK: {
+                    tcpPacketBuilder.ack(true).psh(true);
+                    break;
+                }
                 case DO_SYN: {
                     tcpPacketBuilder.syn(true);
                     break;

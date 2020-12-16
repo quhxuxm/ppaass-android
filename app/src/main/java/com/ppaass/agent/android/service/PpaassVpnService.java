@@ -165,7 +165,7 @@ public class PpaassVpnService extends VpnService {
 
     private Bootstrap createProxyBootstrap(byte[] proxyPublicKey, byte[] agentPrivateKey) {
         Bootstrap proxyBootstrap = new Bootstrap();
-        proxyBootstrap.group(new NioEventLoopGroup());
+        proxyBootstrap.group(new NioEventLoopGroup(1));
         proxyBootstrap.channelFactory(() -> new VpnNioSocketChannel(PpaassVpnService.this));
         proxyBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 20000);
         proxyBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
