@@ -22,6 +22,8 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         Channel targetChannel = targetChannelContext.channel();
         final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
         ByteBuf targetMessageByteBuf = (ByteBuf) targetMessage;
+        long currentVpnToAppSequenceNumber = tcpIoLoop.getVpnToAppSequenceNumber();
+        long currentVpnToAppAcknowledgementNumber = tcpIoLoop.getVpnToAppAcknowledgementNumber();
         while (targetMessageByteBuf.isReadable()) {
             TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
             outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
@@ -30,15 +32,12 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
                 length = targetMessageByteBuf.readableBytes();
             }
             outputData.setData(ByteBufUtil.getBytes(targetMessageByteBuf.readBytes(length)));
-            tcpIoLoop.setVpnToAppSequenceNumber(
-                    tcpIoLoop.getVpnToAppAcknowledgementNumber() + outputData.getData().length);
-            tcpIoLoop.setVpnToAppAcknowledgementNumber(
-                    tcpIoLoop.getAppToVpnSequenceNumber());
+            tcpIoLoop.setVpnToAppSequenceNumber(currentVpnToAppSequenceNumber + outputData.getData().length);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
                     "Receive TARGET data, tcp loop = " + tcpIoLoop + ", tcp output data = " +
                             outputData);
-            Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
-                    "TARGET data: \n" + ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(outputData.getData())) + "\n");
+            Log.d(TcpIoLoopTargetToVpnHandler.class.getName(), "TARGET DATA:\n" +
+                    ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(outputData.getData())) + "\n");
             tcpIoLoop.offerOutputData(outputData);
         }
         ReferenceCountUtil.release(targetMessage);
