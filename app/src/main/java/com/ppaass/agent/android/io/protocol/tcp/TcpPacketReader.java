@@ -33,7 +33,31 @@ public class TcpPacketReader {
         int headerLength = offset * 4;
         byte[] optionAndPadding = new byte[headerLength - IProtocolConst.MIN_TCP_HEADER_LENGTH];
         byteBuffer.get(optionAndPadding);
-        tcpPacketBuilder.optionAndPadding(optionAndPadding);
+        ByteBuffer optionAndPaddingBuffer = ByteBuffer.wrap(optionAndPadding);
+        while (optionAndPaddingBuffer.hasRemaining()) {
+            int optionKind = optionAndPaddingBuffer.get();
+            TcpHeaderOption.Kind tcpHeaderOptionKind = TcpHeaderOption.Kind.fromValue(optionKind);
+            if (tcpHeaderOptionKind == TcpHeaderOption.Kind.EOL) {
+                break;
+            }
+            if (tcpHeaderOptionKind == TcpHeaderOption.Kind.NOP) {
+                tcpPacketBuilder.addOption(new TcpHeaderOption(TcpHeaderOption.Kind.NOP, new byte[]{}));
+                continue;
+            }
+            if (tcpHeaderOptionKind == null) {
+                throw new IllegalStateException("Not exist option.");
+            }
+            int infoLengthInDefinition = tcpHeaderOptionKind.getInfoLength();
+            int totalOptionLengthInByte = optionAndPaddingBuffer.get() & 0xFF;
+            if (infoLengthInDefinition != -1) {
+                if (totalOptionLengthInByte != (infoLengthInDefinition + 2)) {
+                    throw new IllegalStateException("The length of the option is not match.");
+                }
+            }
+            byte[] infoBytes = new byte[totalOptionLengthInByte - 2];
+            optionAndPaddingBuffer.get(infoBytes);
+            tcpPacketBuilder.addOption(new TcpHeaderOption(tcpHeaderOptionKind, infoBytes));
+        }
         int dataLength = input.length - headerLength;
         byte[] data = new byte[dataLength];
         byteBuffer.get(data);

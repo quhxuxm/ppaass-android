@@ -1,6 +1,8 @@
 package com.ppaass.agent.android.io.protocol.tcp;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 public class TcpHeader {
     private int sourcePort;
@@ -18,7 +20,7 @@ public class TcpHeader {
     private int window;
     private int checksum;
     private int urgPointer;
-    private byte[] optionAndPadding;
+    private final List<TcpHeaderOption> options;
 
     TcpHeader() {
         this.urg = false;
@@ -27,14 +29,14 @@ public class TcpHeader {
         this.rst = false;
         this.syn = false;
         this.fin = false;
-        this.optionAndPadding = new byte[]{};
+        this.options = new ArrayList<>();
     }
 
     public int getSourcePort() {
         return sourcePort;
     }
 
-     void setSourcePort(int sourcePort) {
+    void setSourcePort(int sourcePort) {
         this.sourcePort = sourcePort;
     }
 
@@ -150,20 +152,16 @@ public class TcpHeader {
         return urgPointer;
     }
 
-    public byte[] getOptionAndPadding() {
-        return optionAndPadding;
-    }
-
-    void setOptionAndPadding(byte[] optionAndPadding) {
-        if (optionAndPadding == null) {
-            this.optionAndPadding = new byte[]{};
-            return;
-        }
-        this.optionAndPadding = optionAndPadding;
+    public List<TcpHeaderOption> getOptions() {
+        return options;
     }
 
     @Override
     public String toString() {
+        StringBuilder optionsBuilder = new StringBuilder();
+        this.options.forEach((option) -> {
+            optionsBuilder.append(option.getKind().name()).append(":").append(Arrays.toString(option.getInfo())).append(",");
+        });
         return "TcpHeader{" +
                 "sourcePort=" + sourcePort +
                 ", destinationPort=" + destinationPort +
@@ -180,7 +178,9 @@ public class TcpHeader {
                 ", window=" + window +
                 ", checksum=" + checksum +
                 ", urgPointer=" + urgPointer +
-                ", optionAndPadding=" + Arrays.toString(optionAndPadding) +
+                ", options={" +
+                optionsBuilder.toString()
+                + "}" +
                 '}';
     }
 }

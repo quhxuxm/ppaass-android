@@ -6,6 +6,8 @@ import com.ppaass.agent.android.io.protocol.ip.IpV4Header;
 import com.ppaass.agent.android.io.protocol.ip.IpV6Header;
 
 import java.nio.ByteBuffer;
+import java.util.Map;
+import java.util.Set;
 
 public class TcpPacketWriter {
     public static final TcpPacketWriter INSTANCE = new TcpPacketWriter();
@@ -61,7 +63,38 @@ public class TcpPacketWriter {
         byteBuffer.putShort((short) packet.getHeader().getWindow());
         byteBuffer.putShort((short) checksum);
         byteBuffer.putShort((short) packet.getHeader().getUrgPointer());
-        byteBuffer.put(packet.getHeader().getOptionAndPadding());
+        ByteBuffer optionAndPaddingByteBuffer = ByteBuffer.allocate(40);
+        for (TcpHeaderOption option : packet.getHeader().getOptions()) {
+            if (option.getKind() == TcpHeaderOption.Kind.EOL) {
+                break;
+            }
+            if (option.getKind() == TcpHeaderOption.Kind.NOP) {
+                optionAndPaddingByteBuffer.put((byte) TcpHeaderOption.Kind.NOP.getValue());
+                continue;
+            }
+            optionAndPaddingByteBuffer.put((byte) option.getKind().getValue());
+            if (option.getKind().getInfoLength() == -1) {
+                optionAndPaddingByteBuffer.put((byte) (option.getInfo().length + 2));
+            } else {
+                optionAndPaddingByteBuffer.put((byte) (option.getKind().getInfoLength() + 2));
+            }
+            optionAndPaddingByteBuffer.put(option.getInfo());
+        }
+        int bytesNumber = 0;
+        if (optionAndPaddingByteBuffer.position() > 0) {
+            bytesNumber = optionAndPaddingByteBuffer.position();
+        }
+        int paddingByteNumber = 0;
+        if (bytesNumber % 4 != 0) {
+            paddingByteNumber = 4 - (bytesNumber % 4);
+        }
+        for (int i = 0; i < paddingByteNumber; i++) {
+            optionAndPaddingByteBuffer.put((byte) 0);
+        }
+        optionAndPaddingByteBuffer.flip();
+        byte[] optionAndPaddingBytes = new byte[optionAndPaddingByteBuffer.remaining()];
+        optionAndPaddingByteBuffer.get(optionAndPaddingBytes);
+        byteBuffer.put(optionAndPaddingBytes);
         byteBuffer.put(packet.getData());
         byteBuffer.flip();
         return byteBuffer.array();

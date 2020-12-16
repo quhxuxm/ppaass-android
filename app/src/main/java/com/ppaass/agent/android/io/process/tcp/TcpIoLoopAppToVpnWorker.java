@@ -38,6 +38,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
 
     public void start() {
         this.alive = true;
+        this.tcpIoLoop.switchStatus(TcpIoLoopStatus.LISTEN);
     }
 
     public void stop() {

@@ -2,6 +2,10 @@ package com.ppaass.agent.android.io.protocol.tcp;
 
 import com.ppaass.agent.android.io.protocol.IProtocolConst;
 
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.List;
+
 public class TcpPacketBuilder {
     private int sourcePort;
     private int destinationPort;
@@ -16,12 +20,12 @@ public class TcpPacketBuilder {
     private boolean fin;
     private int window;
     private int urgPointer;
-    private byte[] optionAndPadding;
+    private final List<TcpHeaderOption> options;
     private byte[] data;
     private int checksum;
 
     public TcpPacketBuilder() {
-        this.optionAndPadding = new byte[]{};
+        this.options = new ArrayList<>();
         this.data = new byte[]{};
         this.window = 0;
         this.urgPointer = 0;
@@ -93,11 +97,8 @@ public class TcpPacketBuilder {
         return this;
     }
 
-    public TcpPacketBuilder optionAndPadding(byte[] optionAndPadding) {
-        if (optionAndPadding.length % 4 != 0) {
-            throw new IllegalArgumentException("Option and padding is illegal.");
-        }
-        this.optionAndPadding = optionAndPadding;
+    public TcpPacketBuilder addOption(TcpHeaderOption option) {
+        this.options.add(option);
         return this;
     }
 
@@ -127,8 +128,34 @@ public class TcpPacketBuilder {
         tcpHeader.setPsh(this.psh);
         tcpHeader.setRst(this.rst);
         tcpHeader.setUrg(this.urg);
-        tcpHeader.setOptionAndPadding(this.optionAndPadding);
-        int offset = (this.optionAndPadding.length + IProtocolConst.MIN_TCP_HEADER_LENGTH) / 4;
+        tcpHeader.getOptions().addAll(this.options);
+        ByteBuffer optionAndPaddingByteBuffer = ByteBuffer.allocate(40);
+        for (TcpHeaderOption option : tcpHeader.getOptions()) {
+            if (option.getKind() == TcpHeaderOption.Kind.EOL) {
+                break;
+            }
+            if (option.getKind() == TcpHeaderOption.Kind.NOP) {
+                optionAndPaddingByteBuffer.put((byte) TcpHeaderOption.Kind.NOP.getValue());
+                continue;
+            }
+            optionAndPaddingByteBuffer.put((byte) option.getKind().getValue());
+            if (option.getKind().getInfoLength() == -1) {
+                optionAndPaddingByteBuffer.put((byte) (option.getInfo().length + 2));
+            } else {
+                optionAndPaddingByteBuffer.put((byte) (option.getKind().getInfoLength() + 2));
+            }
+            optionAndPaddingByteBuffer.put(option.getInfo());
+        }
+        int bytesNumber = optionAndPaddingByteBuffer.position();
+        int paddingByteNumber = 0;
+        if (bytesNumber % 4 != 0) {
+            paddingByteNumber = 4 - (bytesNumber % 4);
+        }
+        for (int i = 0; i < paddingByteNumber; i++) {
+            optionAndPaddingByteBuffer.put((byte) 0);
+        }
+        optionAndPaddingByteBuffer.flip();
+        int offset = (optionAndPaddingByteBuffer.remaining() + IProtocolConst.MIN_TCP_HEADER_LENGTH) / 4;
         tcpHeader.setOffset(offset);
         tcpHeader.setResolve(this.resolve);
         tcpHeader.setUrgPointer(this.urgPointer);
