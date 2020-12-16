@@ -252,6 +252,9 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 this.tcpIoLoop.setVpnToAppAcknowledgementNumber(this.tcpIoLoop.getAppToVpnSequenceNumber() + 1);
                 this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber());
                 this.tcpIoLoop.switchStatus(TcpIoLoopStatus.CLOSE_WAIT);
+                Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
+                        "Receive fin packet, input ip packet = " +
+                                inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
                 try {
                     this.outputDataQueue.put(finAckOutputData);
                 } catch (InterruptedException e) {
@@ -270,11 +273,13 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     TcpIoLoopVpntoAppData lastAckOutputData = new TcpIoLoopVpntoAppData();
                     lastAckOutputData.setCommand(TcpIoLoopVpnToAppCommand.DO_LAST_ACK);
                     try {
+                        this.tcpIoLoop.setVpnToAppAcknowledgementNumber(this.tcpIoLoop.getVpnToAppAcknowledgementNumber());
                         this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getVpnToAppSequenceNumber());
-                        this.tcpIoLoop
-                                .setVpnToAppAcknowledgementNumber(this.tcpIoLoop.getAppToVpnSequenceNumber() + 1);
                         this.outputDataQueue.put(lastAckOutputData);
                         this.tcpIoLoop.switchStatus(TcpIoLoopStatus.LAST_ACK);
+                        Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
+                                "Receive fin packet and close target channel, input ip packet = " +
+                                        inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
                     } catch (InterruptedException e) {
                         Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
                                 "Fail to send FIN_ACK to app, input ip packet =" +
