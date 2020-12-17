@@ -6,7 +6,7 @@ import io.netty.bootstrap.Bootstrap;
 
 import java.net.InetAddress;
 
-public class UdpIoLoop implements IIoLoop<UdpIoLoopOutputData> {
+public class UdpIoLoop implements IIoLoop {
     private final InetAddress sourceAddress;
     private final InetAddress destinationAddress;
     private final int sourcePort;
@@ -30,23 +30,11 @@ public class UdpIoLoop implements IIoLoop<UdpIoLoopOutputData> {
     }
 
     @Override
-    public void init() {
+    public void execute(IpPacket inputIpPacket) {
     }
 
     @Override
-    public void start() {
-    }
-
-    @Override
-    public void offerInputIpPacket(IpPacket ipPacket) {
-    }
-
-    @Override
-    public void offerOutputData(UdpIoLoopOutputData udpIoLoopOutputData) {
-    }
-
-    @Override
-    public void stop() {
+    public void destroy() {
     }
 
     @Override

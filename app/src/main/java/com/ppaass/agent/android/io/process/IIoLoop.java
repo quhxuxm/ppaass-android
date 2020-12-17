@@ -4,18 +4,12 @@ import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 
 import java.net.InetAddress;
 
-public interface IIoLoop<OutputData> {
+public interface IIoLoop {
     String getKey();
 
-    void init();
+    void execute(IpPacket inputIpPacket);
 
-    void start();
-
-    void stop();
-
-    void offerInputIpPacket(IpPacket ipPacket);
-
-    void offerOutputData(OutputData outputData);
+    void destroy();
 
     InetAddress getSourceAddress();
 

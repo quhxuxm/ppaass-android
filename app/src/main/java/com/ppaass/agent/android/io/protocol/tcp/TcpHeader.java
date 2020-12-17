@@ -160,7 +160,8 @@ public class TcpHeader {
     public String toString() {
         StringBuilder optionsBuilder = new StringBuilder();
         this.options.forEach((option) -> {
-            optionsBuilder.append(option.getKind().name()).append(":").append(Arrays.toString(option.getInfo())).append(",");
+            optionsBuilder.append(option.getKind().name()).append(":").append(Arrays.toString(option.getInfo()))
+                    .append(",");
         });
         return "TcpHeader{" +
                 "sourcePort=" + sourcePort +
@@ -169,18 +170,18 @@ public class TcpHeader {
                 ", acknowledgementNumber=" + acknowledgementNumber +
                 ", offset=" + offset +
                 ", resolve=" + resolve +
-                ", urg=" + urg +
-                ", ack=" + ack +
-                ", psh=" + psh +
-                ", rst=" + rst +
-                ", syn=" + syn +
-                ", fin=" + fin +
                 ", window=" + window +
                 ", checksum=" + checksum +
                 ", urgPointer=" + urgPointer +
                 ", options={" +
                 optionsBuilder.toString()
                 + "}" +
+                ", URG=" + urg +
+                ", ACK=" + ack +
+                ", PSH=" + psh +
+                ", RST=" + rst +
+                ", SYN=" + syn +
+                ", FIN=" + fin +
                 '}';
     }
 }

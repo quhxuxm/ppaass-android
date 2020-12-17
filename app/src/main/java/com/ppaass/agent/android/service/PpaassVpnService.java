@@ -106,20 +106,13 @@ public class PpaassVpnService extends VpnService {
                                         , destinationAddress, destinationPort
                                 );
                         IoLoopHolder.INSTANCE.getIoLoops().computeIfAbsent(ioLoopKey,
-                                (key) -> {
-                                    TcpIoLoop result = new TcpIoLoop(sourceAddress, destinationAddress, sourcePort,
-                                            destinationPort, key, proxyTcpBootstrap, vpnOutputStream);
-                                    result.init();
-                                    result.start();
-                                    Log.d(PpaassVpnService.class.getName(),
-                                            "Initialize tcp loop, tcp packet=" + tcpPacket + ", tcp loop = " + result);
-                                    return result;
-                                });
-                        IIoLoop<?> ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);
+                                (key) -> new TcpIoLoop(sourceAddress, destinationAddress, sourcePort,
+                                        destinationPort, key, proxyTcpBootstrap, vpnOutputStream));
+                        IIoLoop ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);
                         if (ioLoop == null) {
                             throw new RuntimeException();
                         }
-                        ioLoop.offerInputIpPacket(ipPacket);
+                        ioLoop.execute(ipPacket);
                         continue;
                     }
                     if (IpDataProtocol.UDP == protocol) {
@@ -134,18 +127,13 @@ public class PpaassVpnService extends VpnService {
                                         , destinationAddress, destinationPort
                                 );
                         IoLoopHolder.INSTANCE.getIoLoops().computeIfAbsent(ioLoopKey,
-                                (key) -> {
-                                    UdpIoLoop result = new UdpIoLoop(sourceAddress, destinationAddress, sourcePort,
-                                            destinationPort, key, proxyUdpBootstrap);
-                                    result.init();
-                                    result.start();
-                                    return result;
-                                });
-                        IIoLoop<?> ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);
+                                (key) -> new UdpIoLoop(sourceAddress, destinationAddress, sourcePort,
+                                        destinationPort, key, proxyUdpBootstrap));
+                        IIoLoop ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);
                         if (ioLoop == null) {
                             throw new RuntimeException();
                         }
-                        ioLoop.offerInputIpPacket(ipPacket);
+                        ioLoop.execute(ipPacket);
                         continue;
                     }
                     Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);
@@ -165,7 +153,7 @@ public class PpaassVpnService extends VpnService {
 
     private Bootstrap createProxyBootstrap(byte[] proxyPublicKey, byte[] agentPrivateKey) {
         Bootstrap proxyBootstrap = new Bootstrap();
-        proxyBootstrap.group(new NioEventLoopGroup(1));
+        proxyBootstrap.group(new NioEventLoopGroup(20));
         proxyBootstrap.channelFactory(() -> new VpnNioSocketChannel(PpaassVpnService.this));
         proxyBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 20000);
         proxyBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
@@ -198,7 +186,7 @@ public class PpaassVpnService extends VpnService {
     public void onDestroy() {
         this.alive = false;
         IoLoopHolder.INSTANCE.getIoLoops().forEach((loopKey, loop) -> {
-            loop.stop();
+            loop.destroy();
             Log.d(PpaassVpnService.class.getName(), "Destroy IOLoop:  " + loopKey);
         });
         try {

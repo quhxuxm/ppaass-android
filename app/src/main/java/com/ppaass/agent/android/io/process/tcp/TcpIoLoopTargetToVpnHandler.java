@@ -25,20 +25,17 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         long currentVpnToAppSequenceNumber = tcpIoLoop.getVpnToAppSequenceNumber();
         long currentVpnToAppAcknowledgementNumber = tcpIoLoop.getVpnToAppAcknowledgementNumber();
         while (targetMessageByteBuf.isReadable()) {
-            TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
-            outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
             int length = tcpIoLoop.getMss();
             if (targetMessageByteBuf.readableBytes() < length) {
                 length = targetMessageByteBuf.readableBytes();
             }
-            outputData.setData(ByteBufUtil.getBytes(targetMessageByteBuf.readBytes(length)));
+            byte[] ackData = ByteBufUtil.getBytes(targetMessageByteBuf.readBytes(length));
             tcpIoLoop.setVpnToAppSequenceNumber(currentVpnToAppSequenceNumber);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
-                    "Receive TARGET data, tcp loop = " + tcpIoLoop + ", tcp output data = " +
-                            outputData);
+                    "Receive TARGET data, tcp loop = " + tcpIoLoop);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(), "TARGET DATA:\n" +
-                    ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(outputData.getData())) + "\n");
-            tcpIoLoop.offerOutputData(outputData);
+                    ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(ackData)) + "\n");
+            tcpIoLoop.writeToApp(tcpIoLoop.buildAck(ackData));
         }
         ReferenceCountUtil.release(targetMessage);
     }
@@ -49,6 +46,6 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
         Log.e(TcpIoLoopTargetToVpnHandler.class.getName(), "Exception happen on tcp loop, tcp loop =  " + tcpIoLoop,
                 cause);
-        tcpIoLoop.stop();
+        tcpIoLoop.destroy();
     }
 }
