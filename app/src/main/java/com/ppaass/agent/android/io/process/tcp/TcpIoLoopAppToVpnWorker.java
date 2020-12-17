@@ -14,6 +14,7 @@ import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
 
+import java.util.Random;
 import java.util.concurrent.BlockingDeque;
 
 import static com.ppaass.agent.android.io.process.IIoConstant.TCP_LOOP;
@@ -25,6 +26,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
     private Channel targetChannel = null;
     private final BlockingDeque<IpPacket> appToVpnIpPacketQueue;
     private final BlockingDeque<TcpIoLoopVpntoAppData> outputDataQueue;
+    private static final Random random = new Random();
 
     TcpIoLoopAppToVpnWorker(TcpIoLoop tcpIoLoop,
                             Bootstrap proxyTcpBootstrap,
@@ -89,10 +91,9 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
 //                                this.tcpIoLoop);
 //                continue;
 //            }
-            long sequenceNumberInTcpHeader = inputTcpHeader.getSequenceNumber();
-            long acknowledgementNumberInTcpHeader = inputTcpHeader.getAcknowledgementNumber();
-            this.tcpIoLoop.setAppToVpnSequenceNumber(sequenceNumberInTcpHeader);
-            this.tcpIoLoop.setAppToVpnAcknowledgementNumber(acknowledgementNumberInTcpHeader);
+
+            this.tcpIoLoop.setAppToVpnSequenceNumber(inputTcpPacket.getHeader().getSequenceNumber());
+            this.tcpIoLoop.setAppToVpnAcknowledgementNumber(inputTcpPacket.getHeader().getAcknowledgementNumber());
             if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.CLOSED) {
                 Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
                         "Tcp loop closed already, input ip packet =" +
@@ -104,6 +105,9 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                 //Receive a syn.
                 if (this.tcpIoLoop.getStatus() == TcpIoLoopStatus.LISTEN) {
                     //First syn
+                    this.tcpIoLoop.setBaseAppToVpnSequenceNumber(inputTcpPacket.getHeader().getSequenceNumber());
+                    this.tcpIoLoop.setBaseVpnToAppSequenceNumber(Math.abs(random.nextInt()));
+                    this.tcpIoLoop.setBaseVpnToAppAcknowledgement(inputTcpPacket.getHeader().getSequenceNumber());
                     ChannelFuture connectResult = this.proxyTcpBootstrap
                             .connect(tcpIoLoop.getDestinationAddress(), tcpIoLoop.getDestinationPort())
                             .syncUninterruptibly();
@@ -115,8 +119,8 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     }
                     this.targetChannel = connectResult.channel();
                     this.targetChannel.attr(TCP_LOOP).setIfAbsent(this.tcpIoLoop);
-                    this.tcpIoLoop.setVpnToAppAcknowledgementNumber(sequenceNumberInTcpHeader + 1);
-                    this.tcpIoLoop.setVpnToAppSequenceNumber(0);
+                    this.tcpIoLoop.setVpnToAppAcknowledgementNumber(this.tcpIoLoop.getBaseAppToVpnSequenceNumber() + 1);
+                    this.tcpIoLoop.setVpnToAppSequenceNumber(this.tcpIoLoop.getBaseVpnToAppSequenceNumber());
                     TcpHeaderOption mssOption = null;
                     for (TcpHeaderOption option : inputTcpHeader.getOptions()) {
                         if (option.getKind() == TcpHeaderOption.Kind.MSS) {
@@ -132,7 +136,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     TcpIoLoopVpntoAppData outputData = new TcpIoLoopVpntoAppData();
                     outputData.setCommand(TcpIoLoopVpnToAppCommand.DO_SYN_ACK);
                     Log.d(TcpIoLoopProxyToVpnHandler.class.getName(),
-                            "Receive proxy connect success response, tcp loop = " + tcpIoLoop +
+                            "Receive proxy connect success response[SYN ACK], tcp loop = " + tcpIoLoop +
                                     ", tcp output data = " +
                                     outputData);
                     this.tcpIoLoop.offerOutputData(outputData);
@@ -148,6 +152,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                                         inputIpPacket + ", tcp loop = " + this.tcpIoLoop);
                         continue;
                     }
+                    this.tcpIoLoop.setBaseAppToVpnAcknowledgement(inputTcpHeader.getAcknowledgementNumber());
                     this.tcpIoLoop.switchStatus(TcpIoLoopStatus.ESTABLISHED);
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
@@ -155,9 +160,8 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     continue;
                 }
                 if (inputTcpHeader.isPsh()) {
-                    this.tcpIoLoop.setVpnToAppSequenceNumber(acknowledgementNumberInTcpHeader);
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
-                       sequenceNumberInTcpHeader+ inputTcpPacket.getData().length);
+                            inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length);
                     if (inputTcpPacket.getData().length > 0) {
                         if (this.targetChannel == null) {
                             Log.e(TcpIoLoopAppToVpnWorker.class.getName(),
@@ -196,9 +200,8 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                         this.tcpIoLoop.stop();
                         return;
                     }
-                    this.tcpIoLoop.setVpnToAppSequenceNumber(sequenceNumberInTcpHeader);
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
-                           sequenceNumberInTcpHeader+ inputTcpPacket.getData().length);
+                            inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length);
                     if (inputTcpPacket.getData().length > 0) {
                         TcpIoLoopVpntoAppData ackData = new TcpIoLoopVpntoAppData();
                         ackData.setCommand(TcpIoLoopVpnToAppCommand.DO_ACK);
@@ -239,8 +242,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
             if (inputTcpHeader.isFin()) {
                 TcpIoLoopVpntoAppData finAckOutputData = new TcpIoLoopVpntoAppData();
                 finAckOutputData.setCommand(TcpIoLoopVpnToAppCommand.DO_FIN_ACK);
-                this.tcpIoLoop.setVpnToAppAcknowledgementNumber(sequenceNumberInTcpHeader+ 1);
-                this.tcpIoLoop.setVpnToAppSequenceNumber(sequenceNumberInTcpHeader);
+                this.tcpIoLoop.setVpnToAppAcknowledgementNumber(inputTcpHeader.getSequenceNumber() + 1);
                 this.tcpIoLoop.switchStatus(TcpIoLoopStatus.CLOSE_WAIT);
                 Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                         "Receive fin packet, input ip packet = " +

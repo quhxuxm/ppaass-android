@@ -27,6 +27,10 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
     private final BlockingDeque<IpPacket> inputIpPacketQueue;
     private final BlockingDeque<TcpIoLoopVpntoAppData> outputDataQueue;
     private final FileOutputStream vpnOutputStream;
+    private long baseAppToVpnSequenceNumber;
+    private long baseAppToVpnAcknowledgement;
+    private long baseVpnToAppSequenceNumber;
+    private long baseVpnToAppAcknowledgement;
     private long appToVpnSequenceNumber;
     private long appToVpnAcknowledgementNumber;
     private long vpnToAppSequenceNumber;
@@ -46,6 +50,10 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
         this.inputIpPacketQueue = new LinkedBlockingDeque<>();
         this.outputDataQueue = new LinkedBlockingDeque<>();
         this.mss = -1;
+        this.baseAppToVpnSequenceNumber = 0;
+        this.baseAppToVpnAcknowledgement = 0;
+        this.baseVpnToAppSequenceNumber = 0;
+        this.baseVpnToAppAcknowledgement = 0;
     }
 
     @Override
@@ -102,6 +110,50 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
             return;
         }
         this.status = inputStatus;
+    }
+
+    public long getBaseAppToVpnSequenceNumber() {
+        return baseAppToVpnSequenceNumber;
+    }
+
+    public void setBaseAppToVpnSequenceNumber(long baseAppToVpnSequenceNumber) {
+        if (this.baseAppToVpnSequenceNumber > 0) {
+            return;
+        }
+        this.baseAppToVpnSequenceNumber = baseAppToVpnSequenceNumber;
+    }
+
+    public long getBaseAppToVpnAcknowledgement() {
+        return baseAppToVpnAcknowledgement;
+    }
+
+    public void setBaseAppToVpnAcknowledgement(long baseAppToVpnAcknowledgement) {
+        if (this.baseAppToVpnAcknowledgement > 0) {
+            return;
+        }
+        this.baseAppToVpnAcknowledgement = baseAppToVpnAcknowledgement;
+    }
+
+    public long getBaseVpnToAppSequenceNumber() {
+        return baseVpnToAppSequenceNumber;
+    }
+
+    public void setBaseVpnToAppSequenceNumber(long baseVpnToAppSequenceNumber) {
+        if (this.baseVpnToAppSequenceNumber > 0) {
+            return;
+        }
+        this.baseVpnToAppSequenceNumber = baseVpnToAppSequenceNumber;
+    }
+
+    public long getBaseVpnToAppAcknowledgement() {
+        return baseVpnToAppAcknowledgement;
+    }
+
+    public void setBaseVpnToAppAcknowledgement(long baseVpnToAppAcknowledgement) {
+        if (this.baseVpnToAppAcknowledgement > 0) {
+            return;
+        }
+        this.baseVpnToAppAcknowledgement = baseVpnToAppAcknowledgement;
     }
 
     public synchronized long getAppToVpnSequenceNumber() {
@@ -165,10 +217,20 @@ public class TcpIoLoop implements IIoLoop<TcpIoLoopVpntoAppData> {
                 ", destinationPort=" + destinationPort +
                 ", key='" + key + '\'' +
                 ", status=" + status +
+                ", baseAppToVpnSequenceNumber=" + baseAppToVpnSequenceNumber +
+                ", baseAppToVpnAcknowledgement=" + baseAppToVpnAcknowledgement +
+                ", baseVpnToAppSequenceNumber=" + baseVpnToAppSequenceNumber +
+                ", baseVpnToAppAcknowledgement=" + baseVpnToAppAcknowledgement +
                 ", appToVpnSequenceNumber=" + appToVpnSequenceNumber +
                 ", appToVpnAcknowledgementNumber=" + appToVpnAcknowledgementNumber +
                 ", vpnToAppSequenceNumber=" + vpnToAppSequenceNumber +
                 ", vpnToAppAcknowledgementNumber=" + vpnToAppAcknowledgementNumber +
+                ", appToVpnSequenceNumber[RELATIVE]=" + (appToVpnSequenceNumber - this.baseAppToVpnSequenceNumber) +
+                ", appToVpnAcknowledgementNumber[RELATIVE]=" +
+                (appToVpnAcknowledgementNumber - this.baseAppToVpnAcknowledgement) +
+                ", vpnToAppSequenceNumber[RELATIVE]=" + (vpnToAppSequenceNumber - this.baseVpnToAppSequenceNumber) +
+                ", vpnToAppAcknowledgementNumber[RELATIVE]=" +
+                (vpnToAppAcknowledgementNumber - this.baseVpnToAppAcknowledgement) +
                 ", mss=" + mss +
                 '}';
     }
