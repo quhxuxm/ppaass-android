@@ -153,6 +153,7 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                         continue;
                     }
                     this.tcpIoLoop.setBaseAppToVpnAcknowledgement(inputTcpHeader.getAcknowledgementNumber());
+                    this.tcpIoLoop.setAppToVpnAcknowledgementNumber(tcpIoLoop.getAppToVpnAcknowledgementNumber()+1);
                     this.tcpIoLoop.switchStatus(TcpIoLoopStatus.ESTABLISHED);
                     Log.d(TcpIoLoopAppToVpnWorker.class.getName(),
                             "Switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
@@ -160,6 +161,8 @@ class TcpIoLoopAppToVpnWorker implements Runnable {
                     continue;
                 }
                 if (inputTcpHeader.isPsh()) {
+                    this.tcpIoLoop.setVpnToAppSequenceNumber(
+                            this.tcpIoLoop.getVpnToAppSequenceNumber()+1);
                     this.tcpIoLoop.setVpnToAppAcknowledgementNumber(
                             inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length);
                     if (inputTcpPacket.getData().length > 0) {
