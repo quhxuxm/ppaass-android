@@ -3,7 +3,6 @@ package com.ppaass.agent.android.activity;
 import android.content.Intent;
 import android.net.VpnService;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.Button;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -18,16 +17,13 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         Button startVpnButton = this.findViewById(R.id.mainActivityStartVpnButton);
-        startVpnButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Intent startPpaassVpnServiceIntent = VpnService.prepare(MainActivity.this);
-                if (startPpaassVpnServiceIntent != null) {
-                    startActivityForResult(startPpaassVpnServiceIntent, VPN_SERVICE_REQUEST_CODE);
-                    return;
-                }
-                onActivityResult(VPN_SERVICE_REQUEST_CODE, RESULT_OK, null);
+        startVpnButton.setOnClickListener(v -> {
+            Intent startPpaassVpnServiceIntent = VpnService.prepare(MainActivity.this);
+            if (startPpaassVpnServiceIntent != null) {
+                startActivityForResult(startPpaassVpnServiceIntent, VPN_SERVICE_REQUEST_CODE);
+                return;
             }
+            onActivityResult(VPN_SERVICE_REQUEST_CODE, RESULT_OK, null);
         });
     }
 
