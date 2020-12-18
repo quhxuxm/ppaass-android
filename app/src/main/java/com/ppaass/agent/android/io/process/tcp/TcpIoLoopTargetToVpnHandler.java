@@ -23,7 +23,7 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
         ByteBuf targetMessageByteBuf = (ByteBuf) targetMessage;
         while (targetMessageByteBuf.isReadable()) {
-            tcpIoLoop.getPacketAckLock().acquire();
+            tcpIoLoop.getWriteTargetDataSemaphore().acquire();
             int length = tcpIoLoop.getMss();
             if (targetMessageByteBuf.readableBytes() < length) {
                 length = targetMessageByteBuf.readableBytes();
