@@ -43,7 +43,7 @@ public class TcpIoLoop implements IIoLoop {
     private long vpnToAppSequenceNumber;
     private long vpnToAppAcknowledgementNumber;
     private int mss;
-    private Semaphore writeTargetDataSemaphore;
+    private final Semaphore writeTargetDataSemaphore;
 
     public TcpIoLoop(InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort, int destinationPort,
                      String key, Bootstrap targetTcpBootstrap, FileOutputStream vpnOutputStream) {
