@@ -43,6 +43,7 @@ public class TcpIoLoop implements IIoLoop {
     private long vpnToAppSequenceNumber;
     private long vpnToAppAcknowledgementNumber;
     private int mss;
+    private Semaphore packetAckLock;
 
     public TcpIoLoop(InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort, int destinationPort,
                      String key, Bootstrap targetTcpBootstrap, FileOutputStream vpnOutputStream) {
@@ -59,6 +60,7 @@ public class TcpIoLoop implements IIoLoop {
         this.baseAppToVpnAcknowledgement = 0;
         this.baseVpnToAppSequenceNumber = 0;
         this.baseVpnToAppAcknowledgement = 0;
+        packetAckLock = new Semaphore(1);
     }
 
     @Override
@@ -238,11 +240,7 @@ public class TcpIoLoop implements IIoLoop {
                                 ", tcp loop = " +
                                 this);
                 this.writeToApp(this.buildAck(null));
-                Semaphore packetAckLock= TcpIoLoopPacketAckLockHolder.INSTANCE.getPacketAckLocks().get(this.getKey());
-                if(packetAckLock==null){
-                    return;
-                }
-                packetAckLock.release();
+                this.packetAckLock.release();
                 if (inputTcpPacket.getData().length > 0) {
                     Log.d(TcpIoLoop.class.getName(),
                             "DO ACK[ESTABLISHED DATA], send ack data to target, input ip packet =" + inputIpPacket +
@@ -408,7 +406,9 @@ public class TcpIoLoop implements IIoLoop {
         return destinationPort;
     }
 
-
+    public Semaphore getPacketAckLock() {
+        return packetAckLock;
+    }
 
     @Override
     public String toString() {
