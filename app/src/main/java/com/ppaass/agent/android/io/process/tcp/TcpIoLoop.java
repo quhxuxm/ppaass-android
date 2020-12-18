@@ -144,19 +144,19 @@ public class TcpIoLoop implements IIoLoop {
             this.baseVpnToAppAcknowledgement = inputTcpPacket.getHeader().getSequenceNumber();
             if (this.status != TcpIoLoopStatus.LISTEN) {
                 Log.e(TcpIoLoop.class.getName(),
-                        "DO SYN FAIL, because tcp loop not in LISTEN status, input ip packet = " + inputIpPacket +
+                        "RECEIVE SYN FAIL, because tcp loop not in LISTEN status, input ip packet = " + inputIpPacket +
                                 ", tcp loop = " + this);
                 return;
             }
             Log.d(TcpIoLoop.class.getName(),
-                    "DO SYN, initializing connection, input ip packet = " + inputIpPacket +
+                    "RECEIVE SYN, initializing connection, input ip packet = " + inputIpPacket +
                             ", tcp loop = " + this);
             this.targetTcpBootstrap
                     .connect(this.destinationAddress, this.destinationPort).addListener(
                     (ChannelFutureListener) connectResultFuture -> {
                         if (!connectResultFuture.isSuccess()) {
                             Log.e(TcpIoLoop.class.getName(),
-                                    "DO SYN FAIL, fail connect to target, input ip packet="
+                                    "RECEIVE SYN FAIL, fail connect to target, input ip packet="
                                             + inputIpPacket + " tcp loop = " + TcpIoLoop.this);
                             synchronized (TcpIoLoop.this) {
                                 this.status = TcpIoLoopStatus.CLOSED;
@@ -180,7 +180,7 @@ public class TcpIoLoop implements IIoLoop {
                         this.vpnToAppAcknowledgementNumber = this.baseAppToVpnSequenceNumber + 1;
                         this.vpnToAppSequenceNumber = this.baseVpnToAppSequenceNumber;
                         Log.d(TcpIoLoop.class.getName(),
-                                "DO SYN ACK, connect to target success, switch tcp loop status to SYN_RECEIVED, input ip packet = " +
+                                "RECEIVE SYN ACK, connect to target success, switch tcp loop status to SYN_RECEIVED, input ip packet = " +
                                         inputIpPacket +
                                         ", tcp loop = " + this);
                         this.writeToApp(this.buildSynAck());
@@ -190,7 +190,7 @@ public class TcpIoLoop implements IIoLoop {
         if (!inputTcpHeader.isSyn() && inputTcpHeader.isAck()) {
             if (this.status == TcpIoLoopStatus.LISTEN) {
                 Log.e(TcpIoLoop.class.getName(),
-                        "DO ACK, a duplicate ack coming destroy the loop instance, ignore the ip packet, input ip packet = " +
+                        "RECEIVE ACK, a duplicate ack coming destroy the loop instance, ignore the ip packet, input ip packet = " +
                                 inputIpPacket + ", tcp loop = " + this);
                 this.destroy();
                 return;
@@ -198,7 +198,7 @@ public class TcpIoLoop implements IIoLoop {
             if (this.status == TcpIoLoopStatus.SYN_RECEIVED) {
                 if (inputTcpHeader.getSequenceNumber() != this.vpnToAppAcknowledgementNumber) {
                     Log.e(TcpIoLoop.class.getName(),
-                            "DO ACK, the ack number from app is not correct, input ip packet=" +
+                            "RECEIVE ACK, the ack number from app is not correct, input ip packet=" +
                                     inputIpPacket + ", tcp loop = " + this);
                     return;
                 }
@@ -206,7 +206,7 @@ public class TcpIoLoop implements IIoLoop {
                 this.appToVpnAcknowledgementNumber++;
                 this.status = TcpIoLoopStatus.ESTABLISHED;
                 Log.d(TcpIoLoop.class.getName(),
-                        "DO ACK, switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                        "RECEIVE ACK, switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
                                 this);
                 return;
             }
@@ -216,17 +216,17 @@ public class TcpIoLoop implements IIoLoop {
                         inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
                 this.vpnToAppSequenceNumber++;
                 Log.d(TcpIoLoop.class.getName(),
-                        "DO PSH[ACK], write ACK to app side, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                        "RECEIVE PSH[ACK], write ACK to app side, input ip packet =" + inputIpPacket + ", tcp loop = " +
                                 this);
                 this.writeToApp(this.buildAck(null));
                 if (inputTcpPacket.getData().length > 0) {
                     Log.d(TcpIoLoop.class.getName(),
-                            "DO PSH[DATA], send psh data to target, input ip packet =" + inputIpPacket +
+                            "RECEIVE PSH[DATA], send psh data to target, input ip packet =" + inputIpPacket +
                                     ", tcp loop = " +
                                     this);
                     ByteBuf pshData = Unpooled.wrappedBuffer(inputTcpPacket.getData());
                     Log.d(TcpIoLoop.class.getName(),
-                            "DO PSH[DATA], PSH DATA:\n" + ByteBufUtil.prettyHexDump(pshData));
+                            "RECEIVE PSH[DATA], PSH DATA:\n" + ByteBufUtil.prettyHexDump(pshData));
                     targetChannel.writeAndFlush(pshData);
                 }
                 return;
@@ -236,19 +236,19 @@ public class TcpIoLoop implements IIoLoop {
                         inputTcpHeader.getSequenceNumber();
                 this.vpnToAppSequenceNumber++;
                 Log.d(TcpIoLoop.class.getName(),
-                        "DO ACK[ESTABLISHED ACK], write ack to app side, input ip packet =" + inputIpPacket +
+                        "RECEIVE ACK[ESTABLISHED ACK], write ack to app side, input ip packet =" + inputIpPacket +
                                 ", tcp loop = " +
                                 this);
-                this.writeToApp(this.buildAck(null));
+//                this.writeToApp(this.buildAck(null));
                 this.writeTargetDataSemaphore.release();
                 if (inputTcpPacket.getData().length > 0) {
                     Log.d(TcpIoLoop.class.getName(),
-                            "DO ACK[ESTABLISHED DATA], send ack data to target, input ip packet =" + inputIpPacket +
+                            "RECEIVE ACK[ESTABLISHED DATA], send ack data to target, input ip packet =" + inputIpPacket +
                                     ", tcp loop = " +
                                     this);
                     ByteBuf ackData = Unpooled.wrappedBuffer(inputTcpPacket.getData());
                     Log.d(TcpIoLoop.class.getName(),
-                            "DO ACK[ESTABLISHED DATA], ACK DATA:\n" + ByteBufUtil.prettyHexDump(ackData));
+                            "RECEIVE ACK[ESTABLISHED DATA], ACK DATA:\n" + ByteBufUtil.prettyHexDump(ackData));
                     targetChannel.writeAndFlush(ackData);
                 }
                 return;
@@ -256,14 +256,14 @@ public class TcpIoLoop implements IIoLoop {
             if (this.status == TcpIoLoopStatus.LAST_ACK) {
                 if (inputTcpHeader.getSequenceNumber() != this.vpnToAppSequenceNumber + 1) {
                     Log.e(TcpIoLoop.class.getName(),
-                            "DO LAST_ACK FAIL, The ack number from app for last ack is not correct, input ip packet=" +
+                            "RECEIVE LAST_ACK FAIL, The ack number from app for last ack is not correct, input ip packet=" +
                                     inputIpPacket + ", tcp loop = " + this);
                     return;
                 }
                 this.status = TcpIoLoopStatus.CLOSED;
                 this.destroy();
                 Log.d(TcpIoLoop.class.getName(),
-                        "DO LAST_ACK, close tcp loop, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                        "RECEIVE LAST_ACK, close tcp loop, input ip packet =" + inputIpPacket + ", tcp loop = " +
                                 this);
                 return;
             }
@@ -275,13 +275,13 @@ public class TcpIoLoop implements IIoLoop {
             this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
             this.status = TcpIoLoopStatus.CLOSE_WAIT;
             Log.d(TcpIoLoop.class.getName(),
-                    "DO FIN, switch tcp loop status to CLOSE_WAIT, write ack to app side, input ip packet =" +
+                    "RECEIVE FIN, switch tcp loop status to CLOSE_WAIT, write ack to app side, input ip packet =" +
                             inputIpPacket + ", tcp loop = " +
                             this);
             this.writeToApp(this.buildAck(null));
             if (targetChannel == null) {
                 Log.d(TcpIoLoop.class.getName(),
-                        "DO FIN, no target channel, return directly, input ip packet =" + inputIpPacket +
+                        "RECEIVE FIN, no target channel, return directly, input ip packet =" + inputIpPacket +
                                 ", tcp loop = " +
                                 this);
                 return;
@@ -289,14 +289,14 @@ public class TcpIoLoop implements IIoLoop {
             targetChannel.close().syncUninterruptibly().addListener((ChannelFutureListener) future -> {
                 if (!future.isSuccess()) {
                     Log.d(TcpIoLoop.class.getName(),
-                            "DO FIN FAIL, fail to close target channel, input ip packet =" + inputIpPacket +
+                            "RECEIVE FIN FAIL, fail to close target channel, input ip packet =" + inputIpPacket +
                                     ", tcp loop = " +
                                     this);
                     return;
                 }
                 this.status = TcpIoLoopStatus.LAST_ACK;
                 Log.d(TcpIoLoop.class.getName(),
-                        "DO FIN, success to close target channel, write ack to app side, input ip packet =" +
+                        "RECEIVE FIN, success to close target channel, write ack to app side, input ip packet =" +
                                 inputIpPacket + ", tcp loop = " +
                                 this);
                 this.writeToApp(this.buildAck(null));
