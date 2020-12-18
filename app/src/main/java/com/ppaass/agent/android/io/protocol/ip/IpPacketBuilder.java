@@ -19,7 +19,7 @@ public class IpPacketBuilder {
 
     public IpPacket build() {
         if (this.header.getVersion() != IpHeaderVersion.V4) {
-            throw new UnsupportedOperationException("Only support IP V4");
+            return new IpPacket(this.header, null);
         }
         IpV4Header header = (IpV4Header) this.header;
         if (IpDataProtocol.TCP == header.getProtocol()) {

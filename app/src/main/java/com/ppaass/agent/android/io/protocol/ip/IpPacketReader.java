@@ -18,7 +18,9 @@ public class IpPacketReader {
         int version = versionAndHeaderLength >> 4;
         IpHeaderVersion ipHeaderVersion = IpHeaderVersion.parse((byte) version);
         if (IpHeaderVersion.V4 != ipHeaderVersion) {
-            throw new UnsupportedOperationException("Still not support the other ip version, version = " + version);
+            IpPacketBuilder ipPacketBuilder=new IpPacketBuilder();
+            IpV6Header ipV6Header=new IpV6Header();
+            return ipPacketBuilder.header(ipV6Header).build();
         }
         int internalHeaderLength = versionAndHeaderLength & 0xf;
         IpV4HeaderBuilder ipV4HeaderBuilder = new IpV4HeaderBuilder();

@@ -224,7 +224,7 @@ public class TcpIoLoop implements IIoLoop {
                                     this);
                     ByteBuf pshData= Unpooled.wrappedBuffer(inputTcpPacket.getData());
                     Log.d(TcpIoLoop.class.getName(),
-                            "DO PSH, PSH DATA: "+ ByteBufUtil.prettyHexDump(pshData));
+                            "DO PSH, PSH DATA:\n"+ ByteBufUtil.prettyHexDump(pshData));
                     targetChannel.writeAndFlush(pshData);
                 }
                 return;
@@ -243,7 +243,7 @@ public class TcpIoLoop implements IIoLoop {
                                     this);
                     ByteBuf ackData= Unpooled.wrappedBuffer(inputTcpPacket.getData());
                     Log.d(TcpIoLoop.class.getName(),
-                            "DO ACK[ESTABLISHED], ACK DATA: "+ ByteBufUtil.prettyHexDump(ackData));
+                            "DO ACK[ESTABLISHED], ACK DATA:\n"+ ByteBufUtil.prettyHexDump(ackData));
                     targetChannel.writeAndFlush(ackData);
                 }
                 return;
