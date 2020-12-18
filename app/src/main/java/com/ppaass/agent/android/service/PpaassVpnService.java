@@ -105,13 +105,9 @@ public class PpaassVpnService extends VpnService {
                                 .generateLoopKey(sourceAddress, sourcePort
                                         , destinationAddress, destinationPort
                                 );
-                        IoLoopHolder.INSTANCE.getIoLoops().computeIfAbsent(ioLoopKey,
+                        IIoLoop ioLoop = IoLoopHolder.INSTANCE.computeIfAbsent(ioLoopKey,
                                 (key) -> new TcpIoLoop(sourceAddress, destinationAddress, sourcePort,
                                         destinationPort, key, proxyTcpBootstrap, vpnOutputStream));
-                        IIoLoop ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);
-                        if (ioLoop == null) {
-                            throw new RuntimeException();
-                        }
                         ioLoop.execute(ipPacket);
                         continue;
                     }
@@ -126,13 +122,9 @@ public class PpaassVpnService extends VpnService {
                                 .generateLoopKey(sourceAddress, sourcePort
                                         , destinationAddress, destinationPort
                                 );
-                        IoLoopHolder.INSTANCE.getIoLoops().computeIfAbsent(ioLoopKey,
+                        IIoLoop ioLoop = IoLoopHolder.INSTANCE.computeIfAbsent(ioLoopKey,
                                 (key) -> new UdpIoLoop(sourceAddress, destinationAddress, sourcePort,
                                         destinationPort, key, proxyUdpBootstrap));
-                        IIoLoop ioLoop = IoLoopHolder.INSTANCE.getIoLoops().get(ioLoopKey);
-                        if (ioLoop == null) {
-                            throw new RuntimeException();
-                        }
                         ioLoop.execute(ipPacket);
                         continue;
                     }
@@ -185,7 +177,7 @@ public class PpaassVpnService extends VpnService {
     @Override
     public void onDestroy() {
         this.alive = false;
-        IoLoopHolder.INSTANCE.getIoLoops().forEach((loopKey, loop) -> {
+        IoLoopHolder.INSTANCE.forEach((loopKey, loop) -> {
             loop.destroy();
             Log.d(PpaassVpnService.class.getName(), "Destroy IOLoop:  " + loopKey);
         });

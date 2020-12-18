@@ -46,6 +46,5 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
         Log.e(TcpIoLoopTargetToVpnHandler.class.getName(), "Exception happen on tcp loop, tcp loop =  " + tcpIoLoop,
                 cause);
-        tcpIoLoop.destroy();
     }
 }

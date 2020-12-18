@@ -10,6 +10,7 @@ import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacketBuilder;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFutureListener;
@@ -106,145 +107,193 @@ public class TcpIoLoop implements IIoLoop {
     }
 
     @Override
-    public final void execute(IpPacket inputIpPacket) {
+    public final synchronized void execute(IpPacket inputIpPacket) {
         //Do some thing
-        synchronized (this){
-            IIpHeader inputIpHeader = inputIpPacket.getHeader();
-            if (inputIpHeader.getVersion() != IpHeaderVersion.V4) {
-                return;
-            }
-            IpV4Header inputIpV4Header = (IpV4Header) inputIpHeader;
-            if (inputIpV4Header.getProtocol() != IpDataProtocol.TCP) {
-                return;
-            }
-            TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
-            TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
-            this.setAppToVpnSequenceNumber(inputTcpPacket.getHeader().getSequenceNumber());
-            this.setAppToVpnAcknowledgementNumber(inputTcpPacket.getHeader().getAcknowledgementNumber());
-            if (this.status == TcpIoLoopStatus.CLOSED) {
+        IIpHeader inputIpHeader = inputIpPacket.getHeader();
+        if (inputIpHeader.getVersion() != IpHeaderVersion.V4) {
+            Log.e(TcpIoLoop.class.getName(),
+                    "Input ip package is not IPV4, ignore it, input ip packet = " + inputIpPacket + ", tcp loop = " +
+                            this);
+            return;
+        }
+        IpV4Header inputIpV4Header = (IpV4Header) inputIpHeader;
+        if (inputIpV4Header.getProtocol() != IpDataProtocol.TCP) {
+            Log.e(TcpIoLoop.class.getName(),
+                    "Input ip package is not TCP, ignore it, input ip packet = " + inputIpPacket + ", tcp loop = " +
+                            this);
+            return;
+        }
+        TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
+        TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+        this.setAppToVpnSequenceNumber(inputTcpPacket.getHeader().getSequenceNumber());
+        this.setAppToVpnAcknowledgementNumber(inputTcpPacket.getHeader().getAcknowledgementNumber());
+        if (this.status == TcpIoLoopStatus.CLOSED) {
+            Log.e(TcpIoLoop.class.getName(),
+                    "Tcp loop closed already, input ip packet =" +
+                            inputIpPacket + ", tcp loop = " + this);
+            return;
+        }
+        if (inputTcpHeader.isSyn() && !inputTcpHeader.isAck()) {
+
+            if (this.status != TcpIoLoopStatus.LISTEN) {
                 Log.e(TcpIoLoop.class.getName(),
-                        "Tcp loop closed already, input ip packet =" +
+                        "DO SYN FAIL, because tcp loop not in LISTEN status, input ip packet = " + inputIpPacket +
+                                ", tcp loop = " + this);
+                return;
+            }
+            //Receive a syn.
+            //First syn
+            Log.d(TcpIoLoop.class.getName(),
+                    "DO SYN, initializing connection, input ip packet = " + inputIpPacket +
+                            ", tcp loop = " + this);
+            this.baseAppToVpnSequenceNumber = inputTcpPacket.getHeader().getSequenceNumber();
+            this.baseVpnToAppSequenceNumber = Math.abs(random.nextInt());
+            this.baseVpnToAppAcknowledgement = inputTcpPacket.getHeader().getSequenceNumber();
+            this.targetTcpBootstrap
+                    .connect(this.destinationAddress, this.destinationPort).addListener(
+                    (ChannelFutureListener) connectResultFuture -> {
+                        if (!connectResultFuture.isSuccess()) {
+                            Log.e(TcpIoLoop.class.getName(),
+                                    "DO SYN FAIL, fail connect to target, input ip packet="
+                                            + inputIpPacket + " tcp loop = " + TcpIoLoop.this);
+                            synchronized (TcpIoLoop.this) {
+                                this.status = TcpIoLoopStatus.CLOSED;
+                            }
+                            return;
+                        }
+                        this.targetChannel = connectResultFuture.channel();
+                        this.targetChannel.attr(TCP_LOOP).setIfAbsent(TcpIoLoop.this);
+                        this.vpnToAppAcknowledgementNumber = TcpIoLoop.this.baseAppToVpnSequenceNumber + 1;
+                        this.vpnToAppSequenceNumber = this.baseVpnToAppSequenceNumber;
+                        TcpHeaderOption mssOption = null;
+                        for (TcpHeaderOption option : inputTcpHeader.getOptions()) {
+                            if (option.getKind() == TcpHeaderOption.Kind.MSS) {
+                                mssOption = option;
+                                break;
+                            }
+                        }
+                        if (mssOption != null) {
+                            ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
+                            this.mss = mssOptionBuf.readUnsignedShort();
+                        }
+
+                        this.status = TcpIoLoopStatus.SYN_RECEIVED;
+                        Log.d(TcpIoLoop.class.getName(),
+                                "DO SYN, connect to target success, switch tcp loop status to SYN_RECEIVED, input ip packet = " + inputIpPacket +
+                                        ", tcp loop = " + this);
+                        this.writeToApp(this.buildSynAck());
+                    });
+            return;
+        }
+        if (!inputTcpHeader.isSyn() && inputTcpHeader.isAck()) {
+            if (this.status == TcpIoLoopStatus.LISTEN) {
+                Log.e(TcpIoLoop.class.getName(),
+                        "DO ACK, a duplicate ack coming destroy the loop instance, ignore the ip packet, input ip packet = " +
                                 inputIpPacket + ", tcp loop = " + this);
                 this.destroy();
                 return;
             }
-            if (inputTcpHeader.isSyn() && !inputTcpHeader.isAck()) {
-                if (this.status != TcpIoLoopStatus.LISTEN) {
+            if (this.status == TcpIoLoopStatus.SYN_RECEIVED) {
+                if (inputTcpHeader.getSequenceNumber() != this.vpnToAppAcknowledgementNumber) {
                     Log.e(TcpIoLoop.class.getName(),
-                            "Fai to handle SYN, because tcp loop not in LISTEN status, input ip packet = " + inputIpPacket +
-                                    ", tcp loop = " + this);
-                    this.destroy();
+                            "DO ACK, the ack number from app is not correct, input ip packet=" +
+                                    inputIpPacket + ", tcp loop = " + this);
                     return;
                 }
-                //Receive a syn.
-                //First syn
-                this.baseAppToVpnSequenceNumber = inputTcpPacket.getHeader().getSequenceNumber();
-                this.baseVpnToAppSequenceNumber = Math.abs(random.nextInt());
-                this.baseVpnToAppAcknowledgement = inputTcpPacket.getHeader().getSequenceNumber();
-                this.targetTcpBootstrap
-                        .connect(this.destinationAddress, this.destinationPort).addListener(
-                        (ChannelFutureListener) connectResultFuture -> {
-                            if (!connectResultFuture.isSuccess()) {
-                                Log.e(TcpIoLoop.class.getName(),
-                                        "Fail connect to target, input ip packet="
-                                                + inputIpPacket + " tcp loop = " + TcpIoLoop.this);
-                                synchronized (TcpIoLoop.this) {
-                                    this.status = TcpIoLoopStatus.CLOSED;
-                                }
-                                this.destroy();
-                                return;
-                            }
-                            this.targetChannel = connectResultFuture.channel();
-                            this.targetChannel.attr(TCP_LOOP).setIfAbsent(TcpIoLoop.this);
-                            this.vpnToAppAcknowledgementNumber = TcpIoLoop.this.baseAppToVpnSequenceNumber + 1;
-                            this.vpnToAppSequenceNumber = this.baseVpnToAppSequenceNumber;
-                            TcpHeaderOption mssOption = null;
-                            for (TcpHeaderOption option : inputTcpHeader.getOptions()) {
-                                if (option.getKind() == TcpHeaderOption.Kind.MSS) {
-                                    mssOption = option;
-                                    break;
-                                }
-                            }
-                            if (mssOption != null) {
-                                ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
-                                this.mss = mssOptionBuf.readUnsignedShort();
-                            }
-                            this.status = TcpIoLoopStatus.SYN_RECEIVED;
-                            this.writeToApp(this.buildSynAck());
-                        });
+                this.baseAppToVpnAcknowledgement = inputTcpHeader.getAcknowledgementNumber();
+                this.appToVpnAcknowledgementNumber++;
+                this.status = TcpIoLoopStatus.ESTABLISHED;
+                Log.d(TcpIoLoop.class.getName(),
+                        "DO ACK, switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                this);
                 return;
             }
-            if (!inputTcpHeader.isSyn() && inputTcpHeader.isAck()) {
-                if (this.status == TcpIoLoopStatus.SYN_RECEIVED) {
-                    if (inputTcpHeader.getSequenceNumber() != this.vpnToAppAcknowledgementNumber) {
-                        Log.e(TcpIoLoop.class.getName(),
-                                "The ack number from app is not correct, input ip packet=" +
-                                        inputIpPacket + ", tcp loop = " + this);
-                        this.destroy();
-                        return;
-                    }
-                    this.baseAppToVpnAcknowledgement = inputTcpHeader.getAcknowledgementNumber();
-                    this.appToVpnAcknowledgementNumber++;
-                    this.status = TcpIoLoopStatus.ESTABLISHED;
+            if (inputTcpHeader.isPsh()) {
+                //Psh ack
+
+                this.vpnToAppSequenceNumber++;
+                this.vpnToAppAcknowledgementNumber =
+                        inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
+                Log.d(TcpIoLoop.class.getName(),
+                        "DO PSH, write ACK to app side, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                this);
+                this.writeToApp(this.buildAck(null));
+                if (inputTcpPacket.getData().length > 0) {
                     Log.d(TcpIoLoop.class.getName(),
-                            "Switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                            "DO PSH, send psh data to target, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                    this);
+                    ByteBuf pshData= Unpooled.wrappedBuffer(inputTcpPacket.getData());
+                    Log.d(TcpIoLoop.class.getName(),
+                            "DO PSH, PSH DATA: "+ ByteBufUtil.prettyHexDump(pshData));
+                    targetChannel.writeAndFlush(pshData);
+                }
+                return;
+            }
+            if (this.status == TcpIoLoopStatus.ESTABLISHED) {
+                this.vpnToAppSequenceNumber++;
+                this.vpnToAppAcknowledgementNumber =
+                        inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
+                Log.d(TcpIoLoop.class.getName(),
+                        "DO ACK[ESTABLISHED], write ack to app side, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                this);
+                this.writeToApp(this.buildAck(null));
+                if (inputTcpPacket.getData().length > 0) {
+                    Log.d(TcpIoLoop.class.getName(),
+                            "DO ACK[ESTABLISHED], send ack data to target, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                    this);
+                    ByteBuf ackData= Unpooled.wrappedBuffer(inputTcpPacket.getData());
+                    Log.d(TcpIoLoop.class.getName(),
+                            "DO ACK[ESTABLISHED], ACK DATA: "+ ByteBufUtil.prettyHexDump(ackData));
+                    targetChannel.writeAndFlush(ackData);
+                }
+                return;
+            }
+            if (this.status == TcpIoLoopStatus.LAST_ACK) {
+                if (inputTcpHeader.getSequenceNumber() != this.vpnToAppSequenceNumber + 1) {
+                    Log.e(TcpIoLoop.class.getName(),
+                            "DO LAST_ACK FAIL, The ack number from app for last ack is not correct, input ip packet=" +
+                                    inputIpPacket + ", tcp loop = " + this);
+                    return;
+                }
+
+                this.status = TcpIoLoopStatus.CLOSED;
+                this.destroy();
+                Log.d(TcpIoLoop.class.getName(),
+                        "DO LAST_ACK, close tcp loop, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                this);
+                return;
+            }
+            Log.e(TcpIoLoop.class.getName(),
+                    "Tcp loop in illegal status, input ip packet = " + inputIpPacket + ", tcp loop = " + this);
+            throw new IllegalStateException("Tcp loop[" + this.key + "] in illegal status");
+        }
+        if (inputTcpHeader.isFin()) {
+            this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
+            this.status = TcpIoLoopStatus.CLOSE_WAIT;
+            Log.d(TcpIoLoop.class.getName(),
+                    "DO FIN, switch tcp loop status to CLOSE_WAIT, write ack to app side, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                            this);
+            this.writeToApp(this.buildAck(null));
+            if (targetChannel == null) {
+                Log.d(TcpIoLoop.class.getName(),
+                        "DO FIN, no target channel, return directly, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                this);
+                return;
+            }
+            targetChannel.close().syncUninterruptibly().addListener((ChannelFutureListener) future -> {
+                if (!future.isSuccess()) {
+                    Log.d(TcpIoLoop.class.getName(),
+                            "DO FIN FAIL, fail to close target channel, input ip packet =" + inputIpPacket + ", tcp loop = " +
                                     this);
                     return;
                 }
-                if (inputTcpHeader.isPsh()) {
-                    //Psh ack
-                    this.vpnToAppSequenceNumber++;
-                    this.vpnToAppAcknowledgementNumber =
-                            inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
-                    this.writeToApp(this.buildAck(null));
-                    if (inputTcpPacket.getData().length > 0) {
-                        targetChannel.writeAndFlush(Unpooled.wrappedBuffer(inputTcpPacket.getData()));
-                    }
-                    return;
-                }
-                if (this.status == TcpIoLoopStatus.ESTABLISHED) {
-                    this.vpnToAppSequenceNumber++;
-                    this.vpnToAppAcknowledgementNumber =
-                            inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
-                    this.writeToApp(this.buildAck(null));
-                    if (inputTcpPacket.getData().length > 0) {
-                        targetChannel.writeAndFlush(Unpooled.wrappedBuffer(inputTcpPacket.getData()));
-                    }
-                    return;
-                }
-                if (this.status == TcpIoLoopStatus.LAST_ACK) {
-                    if (inputTcpHeader.getSequenceNumber() != this.vpnToAppSequenceNumber + 1) {
-                        Log.e(TcpIoLoop.class.getName(),
-                                "The ack number from app for last ack is not correct, input ip packet=" +
-                                        inputIpPacket + ", tcp loop = " + this);
-                        this.destroy();
-                        return;
-                    }
-                    this.status = TcpIoLoopStatus.CLOSED;
-                    return;
-                }
-                Log.e(TcpIoLoop.class.getName(),
-                        "Tcp loop in illegal status, input ip packet = " + inputIpPacket + ", tcp loop = " + this);
-                throw new IllegalStateException("Tcp loop[" + this.key + "] in illegal status");
-            }
-            if (inputTcpHeader.isFin()) {
-                this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
-                this.status = TcpIoLoopStatus.CLOSE_WAIT;
+                this.status = TcpIoLoopStatus.LAST_ACK;
+                Log.d(TcpIoLoop.class.getName(),
+                        "DO FIN, success to close target channel, write ack to app side, input ip packet =" + inputIpPacket + ", tcp loop = " +
+                                this);
                 this.writeToApp(this.buildAck(null));
-                if (targetChannel == null) {
-                    this.destroy();
-                    return;
-                }
-                targetChannel.close().syncUninterruptibly().addListener((ChannelFutureListener) future -> {
-                    if (!future.isSuccess()) {
-                        return;
-                    }
-                    this.status = TcpIoLoopStatus.LAST_ACK;
-                    this.writeToApp(this.buildAck(null));
-                });
-            }
+            });
         }
-
     }
 
     public int getMss() {
@@ -254,7 +303,7 @@ public class TcpIoLoop implements IIoLoop {
     @Override
     public void destroy() {
         this.status = TcpIoLoopStatus.CLOSED;
-        IoLoopHolder.INSTANCE.getIoLoops().remove(this.getKey());
+        IoLoopHolder.INSTANCE.remove(this.getKey());
     }
 
     public long getBaseAppToVpnSequenceNumber() {
