@@ -19,6 +19,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 
 import static com.ppaass.agent.android.io.process.IIoConstant.TCP_LOOP;
 
@@ -230,13 +231,18 @@ public class TcpIoLoop implements IIoLoop {
             }
             if (this.status == TcpIoLoopStatus.ESTABLISHED) {
                 this.vpnToAppAcknowledgementNumber =
-                        inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
+                        inputTcpHeader.getSequenceNumber();
                 this.vpnToAppSequenceNumber++;
                 Log.d(TcpIoLoop.class.getName(),
                         "DO ACK[ESTABLISHED ACK], write ack to app side, input ip packet =" + inputIpPacket +
                                 ", tcp loop = " +
                                 this);
                 this.writeToApp(this.buildAck(null));
+                Semaphore packetAckLock= TcpIoLoopPacketAckLockHolder.INSTANCE.getPacketAckLocks().get(this.getKey());
+                if(packetAckLock==null){
+                    return;
+                }
+                packetAckLock.release();
                 if (inputTcpPacket.getData().length > 0) {
                     Log.d(TcpIoLoop.class.getName(),
                             "DO ACK[ESTABLISHED DATA], send ack data to target, input ip packet =" + inputIpPacket +

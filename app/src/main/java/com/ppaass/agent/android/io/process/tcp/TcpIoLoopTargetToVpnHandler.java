@@ -11,6 +11,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
 
+import java.util.concurrent.Semaphore;
+
 @ChannelHandler.Sharable
 public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
     public TcpIoLoopTargetToVpnHandler() {
@@ -23,6 +25,10 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
         final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
         ByteBuf targetMessageByteBuf = (ByteBuf) targetMessage;
         while (targetMessageByteBuf.isReadable()) {
+            Semaphore packetAckLock = TcpIoLoopPacketAckLockHolder.INSTANCE.getPacketAckLocks().get(tcpIoLoop.getKey());
+            if (packetAckLock != null) {
+                packetAckLock.acquire();
+            }
             int length = tcpIoLoop.getMss();
             if (targetMessageByteBuf.readableBytes() < length) {
                 length = targetMessageByteBuf.readableBytes();
@@ -34,6 +40,9 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(), "TARGET DATA:\n" +
                     ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(ackData)));
             tcpIoLoop.writeToApp(tcpIoLoop.buildAck(ackData));
+            packetAckLock = new Semaphore(1);
+            TcpIoLoopPacketAckLockHolder.INSTANCE.getPacketAckLocks().put(tcpIoLoop.getKey(), packetAckLock);
+            packetAckLock.acquire();
         }
         ReferenceCountUtil.release(targetMessage);
     }
