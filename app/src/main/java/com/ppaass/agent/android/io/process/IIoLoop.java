@@ -4,7 +4,7 @@ import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 
 import java.net.InetAddress;
 
-public interface IIoLoop {
+public interface IIoLoop extends Runnable {
     String getKey();
 
     void execute(IpPacket inputIpPacket);

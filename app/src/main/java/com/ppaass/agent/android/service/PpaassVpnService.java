@@ -6,6 +6,7 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import com.ppaass.agent.android.R;
 import com.ppaass.agent.android.io.process.IIoLoop;
+import com.ppaass.agent.android.io.process.IoLoopGroup;
 import com.ppaass.agent.android.io.process.IoLoopHolder;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoop;
@@ -36,6 +37,11 @@ public class PpaassVpnService extends VpnService {
     private FileOutputStream vpnOutputStream;
     private ParcelFileDescriptor vpnInterface;
     private boolean alive;
+    private final IoLoopGroup ioLoopGroup;
+
+    public PpaassVpnService() {
+        ioLoopGroup = new IoLoopGroup();
+    }
 
     @Override
     public void onCreate() {
@@ -106,8 +112,12 @@ public class PpaassVpnService extends VpnService {
                                         , destinationAddress, destinationPort
                                 );
                         IIoLoop ioLoop = IoLoopHolder.INSTANCE.computeIfAbsent(ioLoopKey,
-                                (key) -> new TcpIoLoop(sourceAddress, destinationAddress, sourcePort,
-                                        destinationPort, key, proxyTcpBootstrap, vpnOutputStream));
+                                (key) -> {
+                                    IIoLoop newLoop = new TcpIoLoop(sourceAddress, destinationAddress, sourcePort,
+                                            destinationPort, key, proxyTcpBootstrap, vpnOutputStream);
+                                    ioLoopGroup.submit(newLoop);
+                                    return newLoop;
+                                });
                         ioLoop.execute(ipPacket);
                         continue;
                     }
@@ -123,8 +133,12 @@ public class PpaassVpnService extends VpnService {
                                         , destinationAddress, destinationPort
                                 );
                         IIoLoop ioLoop = IoLoopHolder.INSTANCE.computeIfAbsent(ioLoopKey,
-                                (key) -> new UdpIoLoop(sourceAddress, destinationAddress, sourcePort,
-                                        destinationPort, key, proxyUdpBootstrap));
+                                (key) -> {
+                                    IIoLoop newLoop = new UdpIoLoop(sourceAddress, destinationAddress, sourcePort,
+                                            destinationPort, key, proxyUdpBootstrap);
+                                    ioLoopGroup.submit(newLoop);
+                                    return newLoop;
+                                });
                         ioLoop.execute(ipPacket);
                         continue;
                     }
