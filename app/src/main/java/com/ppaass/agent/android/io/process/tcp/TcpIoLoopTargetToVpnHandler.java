@@ -28,13 +28,16 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
             if (targetMessageByteBuf.readableBytes() < length) {
                 length = targetMessageByteBuf.readableBytes();
             }
+            if (tcpIoLoop.getWindow() < length) {
+                length = tcpIoLoop.getWindow();
+            }
             byte[] ackData = ByteBufUtil.getBytes(targetMessageByteBuf.readBytes(length));
-            tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + ackData.length);
+            tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + length);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
                     "DO ACK[TARGET DATA], receive target data, tcp loop = " + tcpIoLoop);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(), "TARGET DATA:\n" +
                     ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(ackData)));
-            tcpIoLoop.writeToApp(tcpIoLoop.buildAck(ackData));
+            tcpIoLoop.writeToApp(tcpIoLoop.buildPshAck(ackData));
         }
         ReferenceCountUtil.release(targetMessage);
     }
