@@ -345,7 +345,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                             inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
                     this.vpnToAppSequenceNumber++;
                     Log.d(TcpIoLoop.class.getName(),
-                            "RECEIVE PSH[ACK], write ACK to app side, input ip packet =" + inputIpPacket +
+                            "RECEIVE PSH[DO ACK], write ACK to app side, input ip packet =" + inputIpPacket +
                                     ", tcp loop = " +
                                     this);
                     this.writeToApp(this.buildAck(null));
@@ -366,20 +366,20 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                             inputTcpHeader.getSequenceNumber();
                     this.vpnToAppSequenceNumber++;
                     Log.d(TcpIoLoop.class.getName(),
-                            "RECEIVE ACK[ESTABLISHED ACK], write ack to app side, input ip packet =" + inputIpPacket +
+                            "RECEIVE ACK[ESTABLISHED], input ip packet =" + inputIpPacket +
                                     ", tcp loop = " +
                                     this);
 //                this.writeToApp(this.buildAck(null));
                     this.writeTargetDataSemaphore.release();
                     if (inputTcpPacket.getData().length > 0) {
                         Log.d(TcpIoLoop.class.getName(),
-                                "RECEIVE ACK[ESTABLISHED DATA], send ack data to target, input ip packet =" +
+                                "RECEIVE ACK with DATA[ESTABLISHED], send ack data to target, input ip packet =" +
                                         inputIpPacket +
                                         ", tcp loop = " +
                                         this);
                         ByteBuf ackData = Unpooled.wrappedBuffer(inputTcpPacket.getData());
                         Log.d(TcpIoLoop.class.getName(),
-                                "RECEIVE ACK[ESTABLISHED DATA], ACK DATA:\n" + ByteBufUtil.prettyHexDump(ackData));
+                                "RECEIVE ACK with DATA[ESTABLISHED DATA], ACK DATA:\n" + ByteBufUtil.prettyHexDump(ackData));
                         targetChannel.writeAndFlush(ackData);
                     }
                     continue;
