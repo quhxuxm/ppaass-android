@@ -28,6 +28,7 @@ import static com.ppaass.agent.android.io.process.IIoConstant.TCP_LOOP;
 
 public class TcpIoLoop implements IIoLoop, Runnable {
     private static final int DEFAULT_WINDOW_SIZE_IN_BYTE = 65535;
+    private static final int BASE_SEQUENCE = (int) (Math.random() * 100000);
     private final InetAddress sourceAddress;
     private final InetAddress destinationAddress;
     private final int sourcePort;
@@ -58,7 +59,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         this.status = TcpIoLoopStatus.LISTEN;
         this.mss = -1;
         this.window = -1;
-        writeTargetDataSemaphore = new Semaphore(4);
+        writeTargetDataSemaphore = new Semaphore(1);
         this.ipPacketBlockingDeque = new LinkedBlockingDeque<>();
         this.alive = true;
     }
@@ -202,7 +203,8 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                     Log.d(TcpIoLoop.class.getName(),
                             "No ip packet for tcp loop in 20 seconds, skip and take again [end time=" + endTime +
                                     ", use=" +
-                                    (endTime - startTime) / 1000 + "], tcp loop = " + this);
+                                    (endTime - startTime) / 1000 + "], ip packet = " + inputIpPacket + ", tcp loop = " +
+                                    this);
                     continue;
                 }
                 Log.d(TcpIoLoop.class.getName(),
@@ -278,7 +280,8 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         this.writeToApp(this.buildAck(null));
         if (targetChannel == null) {
             Log.d(TcpIoLoop.class.getName(),
-                    "RECEIVE FIN[Close directly], no target channel, return directly, input ip packet =" + inputIpPacket +
+                    "RECEIVE FIN[Close directly], no target channel, return directly, input ip packet =" +
+                            inputIpPacket +
                             ", tcp loop = " +
                             this);
             return;
@@ -309,6 +312,15 @@ public class TcpIoLoop implements IIoLoop, Runnable {
             return;
         }
         if (this.status == TcpIoLoopStatus.SYN_RECEIVED) {
+            if (inputTcpHeader.getSequenceNumber() != this.vpnToAppAcknowledgementNumber) {
+                Log.e(TcpIoLoop.class.getName(),
+                        "RECEIVE ACK, but the sequence number do not match the vpnToAppAcknowledgementNumber in tcp loop, input ip packet =" +
+                                inputIpPacket +
+                                ", tcp loop = " +
+                                this);
+                return;
+            }
+            this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             this.status = TcpIoLoopStatus.ESTABLISHED;
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE ACK, switch tcp loop to ESTABLISHED, input ip packet =" + inputIpPacket +
@@ -318,8 +330,8 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         }
         if (inputTcpHeader.isPsh()) {
             //Psh ack
-            this.vpnToAppAcknowledgementNumber =
-                    inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
+//            this.vpnToAppAcknowledgementNumber =
+//                    inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
             this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE PSH[DO ACK], write ACK to app side, input ip packet =" + inputIpPacket +
@@ -340,8 +352,8 @@ public class TcpIoLoop implements IIoLoop, Runnable {
             return;
         }
         if (this.status == TcpIoLoopStatus.ESTABLISHED) {
-            this.vpnToAppAcknowledgementNumber =
-                    inputTcpHeader.getSequenceNumber() + 1;
+//            this.vpnToAppAcknowledgementNumber =
+//                    inputTcpHeader.getSequenceNumber() + 1;
             this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             if (inputTcpHeader.isFin()) {
                 this.vpnToAppSequenceNumber = inputTcpPacket.getHeader().getAcknowledgementNumber();
@@ -439,7 +451,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                     }
                     this.window = inputTcpHeader.getWindow();
                     this.status = TcpIoLoopStatus.SYN_RECEIVED;
-                    this.vpnToAppSequenceNumber = Math.abs(random.nextInt());
+                    this.vpnToAppSequenceNumber = BASE_SEQUENCE;
                     this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
                     Log.d(TcpIoLoop.class.getName(),
                             "RECEIVE SYN[DO ACK], connect to target success, switch tcp loop status to SYN_RECEIVED, input ip packet = " +
