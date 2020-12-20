@@ -162,7 +162,7 @@ public class PpaassVpnService extends VpnService {
         proxyBootstrap.group(new NioEventLoopGroup(20));
         proxyBootstrap.channelFactory(() -> new VpnNioSocketChannel(PpaassVpnService.this));
         proxyBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2000);
-        proxyBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        proxyBootstrap.option(ChannelOption.SO_KEEPALIVE, false);
         proxyBootstrap.option(ChannelOption.AUTO_READ, true);
         proxyBootstrap.option(ChannelOption.AUTO_CLOSE, false);
         proxyBootstrap.option(ChannelOption.ALLOCATOR, PreferHeapByteBufAllocator.DEFAULT);

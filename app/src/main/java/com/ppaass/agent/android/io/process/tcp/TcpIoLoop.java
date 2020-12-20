@@ -126,6 +126,13 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         return this.buildIpPacket(ackTcpPacketBuilder);
     }
 
+    public IpPacket buildFin(byte[] data) {
+        TcpPacketBuilder ackTcpPacketBuilder = new TcpPacketBuilder();
+        ackTcpPacketBuilder.fin(true);
+        ackTcpPacketBuilder.data(data);
+        return this.buildIpPacket(ackTcpPacketBuilder);
+    }
+
     @Override
     public final void execute(IpPacket inputIpPacket) {
         this.ipPacketBlockingDeque.push(inputIpPacket);
@@ -211,7 +218,8 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                 long endTime = System.currentTimeMillis();
                 if (inputIpPacket == null) {
                     Log.d(TcpIoLoop.class.getName(),
-                            "No ip packet for tcp loop in 20 seconds, skip and take again [end time=" + endTime + ", use=" +
+                            "No ip packet for tcp loop in 20 seconds, skip and take again [end time=" + endTime +
+                                    ", use=" +
                                     (endTime - startTime) / 1000 + "], tcp loop = " + this);
                     continue;
                 }
@@ -301,6 +309,10 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                 continue;
             }
             if (!inputTcpHeader.isSyn() && inputTcpHeader.isAck()) {
+                if (this.status == TcpIoLoopStatus.FIN_WAITE1) {
+                    this.status = TcpIoLoopStatus.FIN_WAITE2;
+                    continue;
+                }
                 if (this.status == TcpIoLoopStatus.SYN_RECEIVED) {
 //                    if (inputTcpHeader.getSequenceNumber() != this.vpnToAppAcknowledgementNumber) {
 //                        Log.e(TcpIoLoop.class.getName(),
@@ -400,6 +412,13 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                 throw new IllegalStateException("Tcp loop[" + this.key + "] in illegal status");
             }
             if (inputTcpHeader.isFin()) {
+                if (this.status == TcpIoLoopStatus.FIN_WAITE2) {
+                    this.status = TcpIoLoopStatus.TIME_WAITE;
+                    this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
+                    this.writeToApp(this.buildAck(null));
+                    this.destroy();
+                    return;
+                }
                 this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
                 this.status = TcpIoLoopStatus.CLOSE_WAIT;
                 Log.d(TcpIoLoop.class.getName(),
@@ -432,6 +451,10 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                 });
             }
         }
+    }
+
+    public synchronized void switchStatus(TcpIoLoopStatus status) {
+        this.status = status;
     }
 
     @Override

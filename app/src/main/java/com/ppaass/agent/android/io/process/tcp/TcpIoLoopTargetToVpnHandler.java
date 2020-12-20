@@ -5,15 +5,21 @@ import com.ppaass.agent.android.io.process.IIoConstant;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
-import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.*;
 import io.netty.util.ReferenceCountUtil;
 
 @ChannelHandler.Sharable
-public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
+public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
     public TcpIoLoopTargetToVpnHandler() {
+    }
+
+    @Override
+    public void close(ChannelHandlerContext targetChannelContext, ChannelPromise promise) throws Exception {
+        Channel targetChannel = targetChannelContext.channel();
+        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
+        tcpIoLoop.writeToApp(tcpIoLoop.buildFin(null));
+        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
+        super.close(targetChannelContext, promise);
     }
 
     @Override
@@ -27,9 +33,6 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelInboundHandlerAdapter {
             int length = tcpIoLoop.getMss();
             if (targetMessageByteBuf.readableBytes() < length) {
                 length = targetMessageByteBuf.readableBytes();
-            }
-            if (tcpIoLoop.getWindow() < length) {
-                length = tcpIoLoop.getWindow();
             }
             byte[] ackData = ByteBufUtil.getBytes(targetMessageByteBuf.readBytes(length));
             tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + length);
