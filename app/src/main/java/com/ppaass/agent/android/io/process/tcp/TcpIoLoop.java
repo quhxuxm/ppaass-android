@@ -297,7 +297,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                                             inputIpPacket +
                                             ", tcp loop = " + this);
                             this.writeToApp(this.buildSynAck());
-                        });
+                        }).syncUninterruptibly();
                 continue;
             }
             if (!inputTcpHeader.isSyn() && inputTcpHeader.isAck()) {
@@ -340,7 +340,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                         ByteBuf pshData = Unpooled.wrappedBuffer(inputTcpPacket.getData());
                         Log.d(TcpIoLoop.class.getName(),
                                 "RECEIVE PSH[DATA], PSH DATA:\n" + ByteBufUtil.prettyHexDump(pshData));
-                        targetChannel.writeAndFlush(pshData);
+                        targetChannel.writeAndFlush(pshData).syncUninterruptibly();
                     }
                     continue;
                 }
@@ -372,7 +372,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                                             inputIpPacket +
                                             ", tcp loop = " +
                                             this);
-                        });
+                        }).syncUninterruptibly();
                         return;
                     }
                     Log.d(TcpIoLoop.class.getName(),
