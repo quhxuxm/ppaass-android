@@ -22,11 +22,12 @@ import java.util.Random;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 import static com.ppaass.agent.android.io.process.IIoConstant.TCP_LOOP;
 
 public class TcpIoLoop implements IIoLoop, Runnable {
-    private static final int DEFAULT_WINDOW_SIZE_IN_BYTE = 2048;
+    private static final int DEFAULT_WINDOW_SIZE_IN_BYTE = 65535;
     private final InetAddress sourceAddress;
     private final InetAddress destinationAddress;
     private final int sourcePort;
@@ -80,11 +81,12 @@ public class TcpIoLoop implements IIoLoop, Runnable {
     }
 
     private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder) {
+        short identification = (short) Math.abs(random.nextInt());
         IpV4Header ipV4Header =
                 new IpV4HeaderBuilder()
                         .destinationAddress(this.sourceAddress.getAddress())
                         .sourceAddress(this.destinationAddress.getAddress())
-                        .protocol(IpDataProtocol.TCP).build();
+                        .protocol(IpDataProtocol.TCP).identification(identification).build();
         tcpPacketBuilder
                 .sequenceNumber(this.vpnToAppSequenceNumber)
                 .acknowledgementNumber(this.vpnToAppAcknowledgementNumber)
@@ -117,6 +119,13 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         return this.buildIpPacket(ackTcpPacketBuilder);
     }
 
+    public IpPacket buildFinAck(byte[] data) {
+        TcpPacketBuilder ackTcpPacketBuilder = new TcpPacketBuilder();
+        ackTcpPacketBuilder.ack(true).fin(true);
+        ackTcpPacketBuilder.data(data);
+        return this.buildIpPacket(ackTcpPacketBuilder);
+    }
+
     @Override
     public final void execute(IpPacket inputIpPacket) {
         this.ipPacketBlockingDeque.push(inputIpPacket);
@@ -130,6 +139,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
     public void destroy() {
         this.alive = false;
         this.status = TcpIoLoopStatus.CLOSED;
+        this.targetChannel = null;
         IoLoopHolder.INSTANCE.remove(this.getKey());
     }
 
@@ -194,8 +204,22 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         while (this.alive) {
             final IpPacket inputIpPacket;
             try {
-                inputIpPacket = this.ipPacketBlockingDeque.take();
+                long startTime = System.currentTimeMillis();
+                Log.d(TcpIoLoop.class.getName(),
+                        "Begin to take input ip packet for tcp loop[start time=" + startTime + "], tcp loop = " + this);
+                inputIpPacket = this.ipPacketBlockingDeque.poll(20000L, TimeUnit.SECONDS);
+                long endTime = System.currentTimeMillis();
+                if (inputIpPacket == null) {
+                    Log.d(TcpIoLoop.class.getName(),
+                            "No ip packet for tcp loop in 20 seconds, skip and take again [end time=" + endTime + ", use=" +
+                                    (endTime - startTime) / 1000 + "], tcp loop = " + this);
+                    continue;
+                }
+                Log.d(TcpIoLoop.class.getName(),
+                        "Success take input ip packet for tcp loop[end time=" + endTime + ", use=" +
+                                (endTime - startTime) / 1000 + "], tcp loop = " + this);
             } catch (InterruptedException e) {
+                Log.e(TcpIoLoop.class.getName(), "Fail to take ip packet from input queue because of exception.", e);
                 this.destroy();
                 return;
             }
@@ -219,15 +243,16 @@ public class TcpIoLoop implements IIoLoop, Runnable {
             TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
             this.appToVpnSequenceNumber = inputTcpHeader.getSequenceNumber();
             this.appToVpnAcknowledgementNumber = inputTcpHeader.getAcknowledgementNumber();
-            if (this.status == TcpIoLoopStatus.CLOSED) {
-                Log.e(TcpIoLoop.class.getName(),
-                        "Tcp loop closed already, input ip packet =" +
-                                inputIpPacket + ", tcp loop = " + this);
-                continue;
-            }
             if (inputTcpHeader.isSyn() && !inputTcpHeader.isAck()) {
                 //Receive a syn.
                 //First syn
+                if (this.status == TcpIoLoopStatus.CLOSED) {
+//                Log.e(TcpIoLoop.class.getName(),
+//                        "Tcp loop closed already, input ip packet =" +
+//                                inputIpPacket + ", tcp loop = " + this);
+//                continue;
+                    this.status = TcpIoLoopStatus.LISTEN;
+                }
                 if (this.status != TcpIoLoopStatus.LISTEN) {
                     Log.e(TcpIoLoop.class.getName(),
                             "RECEIVE SYN FAIL, because tcp loop not in LISTEN status, input ip packet = " +
@@ -323,24 +348,38 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                     this.vpnToAppAcknowledgementNumber =
                             inputTcpHeader.getSequenceNumber() + 1;
                     this.vpnToAppSequenceNumber = this.appToVpnAcknowledgementNumber;
+                    if (inputTcpHeader.isFin()) {
+                        this.vpnToAppSequenceNumber = inputTcpPacket.getHeader().getAcknowledgementNumber();
+                        this.vpnToAppAcknowledgementNumber = inputTcpPacket.getHeader().getSequenceNumber() + 1;
+                        Log.d(TcpIoLoop.class.getName(),
+                                "RECEIVE FIN ACK[DO ACK], input ip packet =" +
+                                        inputIpPacket +
+                                        ", tcp loop = " +
+                                        this);
+                        this.writeToApp(this.buildAck(null));
+                        if (targetChannel == null) {
+                            Log.d(TcpIoLoop.class.getName(),
+                                    "RECEIVE FIN ACK[DO ACK], no target channel, return directly, input ip packet =" +
+                                            inputIpPacket +
+                                            ", tcp loop = " +
+                                            this);
+                            continue;
+                        }
+                        this.targetChannel.close().addListener(future -> {
+                            this.destroy();
+                            Log.d(TcpIoLoop.class.getName(),
+                                    "RECEIVE FIN ACK[DO ACK], tcp loop closed, input ip packet =" +
+                                            inputIpPacket +
+                                            ", tcp loop = " +
+                                            this);
+                        });
+                        return;
+                    }
                     Log.d(TcpIoLoop.class.getName(),
                             "RECEIVE ACK[ESTABLISHED], input ip packet =" + inputIpPacket +
                                     ", tcp loop = " +
                                     this);
-//                this.writeToApp(this.buildAck(null));
                     this.writeTargetDataSemaphore.release();
-//                    if (inputTcpPacket.getData().length > 0) {
-//                        Log.d(TcpIoLoop.class.getName(),
-//                                "RECEIVE ACK with DATA[ESTABLISHED], send ack data to target, input ip packet =" +
-//                                        inputIpPacket +
-//                                        ", tcp loop = " +
-//                                        this);
-//                        ByteBuf ackData = Unpooled.wrappedBuffer(inputTcpPacket.getData());
-//                        Log.d(TcpIoLoop.class.getName(),
-//                                "RECEIVE ACK with DATA[ESTABLISHED DATA], ACK DATA:\n" +
-//                                        ByteBufUtil.prettyHexDump(ackData));
-//                        targetChannel.writeAndFlush(ackData);
-//                    }
                     continue;
                 }
                 if (this.status == TcpIoLoopStatus.LAST_ACK) {
@@ -350,12 +389,11 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                                         inputIpPacket + ", tcp loop = " + this);
                         continue;
                     }
-                    this.status = TcpIoLoopStatus.CLOSED;
                     this.destroy();
                     Log.d(TcpIoLoop.class.getName(),
                             "RECEIVE LAST_ACK, close tcp loop, input ip packet =" + inputIpPacket + ", tcp loop = " +
                                     this);
-                    continue;
+                    return;
                 }
                 Log.e(TcpIoLoop.class.getName(),
                         "Tcp loop in illegal status, input ip packet = " + inputIpPacket + ", tcp loop = " + this);
@@ -385,11 +423,12 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                         return;
                     }
                     this.status = TcpIoLoopStatus.LAST_ACK;
+                    this.vpnToAppSequenceNumber++;
                     Log.d(TcpIoLoop.class.getName(),
                             "RECEIVE FIN, success to close target channel, write ack to app side, input ip packet =" +
                                     inputIpPacket + ", tcp loop = " +
                                     this);
-                    this.writeToApp(this.buildAck(null));
+                    this.writeToApp(this.buildFinAck(null));
                 });
             }
         }
