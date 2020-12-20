@@ -263,7 +263,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
             this.vpnToAppSequenceNumber++;
             this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
             Log.d(TcpIoLoop.class.getName(),
-                    "RECEIVE FIN[FIN_WAITE2],switch tcp loop status to TIME_WAITE, input ip packet=" +
+                    "RECEIVE FIN on FIN_WAITE2[Change to TIME_WAIT],switch tcp loop status to TIME_WAITE, input ip packet=" +
                             inputIpPacket + ", tcp loop = " + this);
             this.writeToApp(this.buildAck(null));
             this.destroy();
@@ -272,13 +272,13 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
         this.status = TcpIoLoopStatus.CLOSE_WAIT;
         Log.d(TcpIoLoop.class.getName(),
-                "RECEIVE FIN, switch tcp loop status to CLOSE_WAIT, write ack to app side, input ip packet =" +
+                "RECEIVE FIN[Change to CLOSE_WAIT], switch tcp loop status to CLOSE_WAIT, write ack to app side, input ip packet =" +
                         inputIpPacket + ", tcp loop = " +
                         this);
         this.writeToApp(this.buildAck(null));
         if (targetChannel == null) {
             Log.d(TcpIoLoop.class.getName(),
-                    "RECEIVE FIN, no target channel, return directly, input ip packet =" + inputIpPacket +
+                    "RECEIVE FIN[Close directly], no target channel, return directly, input ip packet =" + inputIpPacket +
                             ", tcp loop = " +
                             this);
             return;
