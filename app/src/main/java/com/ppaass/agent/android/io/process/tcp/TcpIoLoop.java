@@ -19,14 +19,11 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.util.Random;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 
 import static com.ppaass.agent.android.io.process.IIoConstant.TCP_LOOP;
 
-public class TcpIoLoop implements IIoLoop, Runnable {
+public class TcpIoLoop implements IIoLoop {
     private static final int DEFAULT_WINDOW_SIZE_IN_BYTE = 65535;
     private static final int BASE_SEQUENCE = (int) (Math.random() * 100000);
     private final InetAddress sourceAddress;
@@ -42,9 +39,8 @@ public class TcpIoLoop implements IIoLoop, Runnable {
     private long vpnToAppSequenceNumber;
     private long vpnToAppAcknowledgementNumber;
     private int mss;
-    private final Semaphore writeTargetDataSemaphore;
-    private final BlockingDeque<IpPacket> ipPacketBlockingDeque;
-    private boolean alive;
+//    private final Semaphore writeTargetDataSemaphore;
+
     private int window;
 
     public TcpIoLoop(InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort, int destinationPort,
@@ -59,9 +55,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         this.status = TcpIoLoopStatus.LISTEN;
         this.mss = -1;
         this.window = -1;
-        writeTargetDataSemaphore = new Semaphore(1);
-        this.ipPacketBlockingDeque = new LinkedBlockingDeque<>();
-        this.alive = true;
+//        writeTargetDataSemaphore = new Semaphore(1);
     }
 
     @Override
@@ -80,7 +74,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
     }
 
     private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder) {
-        short identification = (short) Math.abs(random.nextInt());
+        short identification = (short) Math.abs((short) random.nextInt());
         IpV4Header ipV4Header =
                 new IpV4HeaderBuilder()
                         .destinationAddress(this.sourceAddress.getAddress())
@@ -133,8 +127,44 @@ public class TcpIoLoop implements IIoLoop, Runnable {
     }
 
     @Override
-    public final void execute(IpPacket inputIpPacket) {
-        this.ipPacketBlockingDeque.push(inputIpPacket);
+    public final synchronized void execute(IpPacket inputIpPacket) {
+            //Do some thing
+            IIpHeader inputIpHeader = inputIpPacket.getHeader();
+            if (inputIpHeader.getVersion() != IpHeaderVersion.V4) {
+                Log.e(TcpIoLoop.class.getName(),
+                        "Input ip package is not IPV4, ignore it, input ip packet = " + inputIpPacket +
+                                ", tcp loop = " +
+                                this);
+                this.destroy();
+                return;
+            }
+            IpV4Header inputIpV4Header = (IpV4Header) inputIpHeader;
+            if (inputIpV4Header.getProtocol() != IpDataProtocol.TCP) {
+                Log.e(TcpIoLoop.class.getName(),
+                        "Input ip package is not TCP, ignore it, input ip packet = " + inputIpPacket + ", tcp loop = " +
+                                this);
+                this.destroy();
+                return;
+            }
+            TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
+            TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+            if (inputTcpHeader.isSyn()) {
+                doSyn(inputIpPacket);
+                return;
+            }
+            if (inputTcpHeader.isAck()) {
+                doAck(inputIpPacket);
+                return;
+            }
+            if (inputTcpHeader.isFin()) {
+                doFin(inputIpPacket);
+                return;
+            }
+            if (inputTcpHeader.isRst()) {
+                doRst(inputIpPacket);
+                return;
+            }
+
     }
 
     public int getMss() {
@@ -142,9 +172,10 @@ public class TcpIoLoop implements IIoLoop, Runnable {
     }
 
     @Override
-    public void destroy() {
-        this.alive = false;
+    public synchronized void destroy() {
         this.status = TcpIoLoopStatus.CLOSED;
+        this.vpnToAppAcknowledgementNumber = 0;
+        this.vpnToAppSequenceNumber = 0;
         if (this.targetChannel != null) {
             try {
                 if (this.targetChannel.isOpen()) {
@@ -189,64 +220,14 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         return destinationPort;
     }
 
-    public Semaphore getWriteTargetDataSemaphore() {
-        return writeTargetDataSemaphore;
-    }
+//    public Semaphore getWriteTargetDataSemaphore() {
+//        return writeTargetDataSemaphore;
+//    }
 
     public int getWindow() {
         return window;
     }
 
-    @Override
-    public void run() {
-        while (this.alive) {
-            final IpPacket inputIpPacket;
-            try {
-                inputIpPacket = this.ipPacketBlockingDeque.poll(20000L, TimeUnit.SECONDS);
-                if (inputIpPacket == null) {
-                    continue;
-                }
-            } catch (InterruptedException e) {
-                Log.e(TcpIoLoop.class.getName(), "Fail to take ip packet from input queue because of exception.", e);
-                this.destroy();
-                return;
-            }
-            //Do some thing
-            IIpHeader inputIpHeader = inputIpPacket.getHeader();
-            if (inputIpHeader.getVersion() != IpHeaderVersion.V4) {
-                Log.e(TcpIoLoop.class.getName(),
-                        "Input ip package is not IPV4, ignore it, input ip packet = " + inputIpPacket +
-                                ", tcp loop = " +
-                                this);
-                continue;
-            }
-            IpV4Header inputIpV4Header = (IpV4Header) inputIpHeader;
-            if (inputIpV4Header.getProtocol() != IpDataProtocol.TCP) {
-                Log.e(TcpIoLoop.class.getName(),
-                        "Input ip package is not TCP, ignore it, input ip packet = " + inputIpPacket + ", tcp loop = " +
-                                this);
-                continue;
-            }
-            TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
-            TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
-            if (inputTcpHeader.isSyn()) {
-                doSyn(inputIpPacket);
-                continue;
-            }
-            if (inputTcpHeader.isAck()) {
-                doAck(inputIpPacket);
-                continue;
-            }
-            if (inputTcpHeader.isFin()) {
-                doFin(inputIpPacket);
-                continue;
-            }
-            if (inputTcpHeader.isRst()) {
-                doRst(inputIpPacket);
-                continue;
-            }
-        }
-    }
 
     private void doSyn(IpPacket inputIpPacket) {
         TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
@@ -341,6 +322,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                             inputIpPacket + ", tcp loop = " +
                             this);
             this.writeToApp(this.buildFinAck(null));
+            this.destroy();
         });
     }
 
@@ -386,8 +368,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                         "RECEIVE PSH[DATA], PSH DATA:\n" + ByteBufUtil.prettyHexDump(pshData));
                 targetChannel.writeAndFlush(pshData).syncUninterruptibly();
             }
-
-            this.vpnToAppAcknowledgementNumber = this.vpnToAppAcknowledgementNumber+inputTcpPacket.getData().length;
+            this.vpnToAppAcknowledgementNumber = this.vpnToAppAcknowledgementNumber + inputTcpPacket.getData().length;
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE PSH[DO ACK - Finish Write], write ACK to app side, input ip packet =" + inputIpPacket +
                             ", tcp loop = " +
@@ -397,7 +378,6 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         if (this.status == TcpIoLoopStatus.ESTABLISHED) {
 //            this.vpnToAppAcknowledgementNumber =
 //                    inputTcpHeader.getSequenceNumber() + 1;
-
             if (inputTcpHeader.isFin()) {
                 this.vpnToAppSequenceNumber = inputTcpPacket.getHeader().getAcknowledgementNumber();
                 this.vpnToAppAcknowledgementNumber = inputTcpPacket.getHeader().getSequenceNumber() + 1;
@@ -425,12 +405,26 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                 }).syncUninterruptibly();
                 return;
             }
+
+
             this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE ACK[ESTABLISHED], input ip packet =" + inputIpPacket +
                             ", tcp loop = " +
                             this);
-            this.writeTargetDataSemaphore.release();
+            if (inputTcpPacket.getData().length > 0) {
+                Log.d(TcpIoLoop.class.getName(),
+                        "RECEIVE ACK[ESTABLISHED with DATA], send data to target, input ip packet =" + inputIpPacket +
+                                ", tcp loop = " +
+                                this);
+                ByteBuf ackData = Unpooled.wrappedBuffer(inputTcpPacket.getData());
+                Log.d(TcpIoLoop.class.getName(),
+                        "RECEIVE ACK[ESTABLISHED with DATA], ACK DATA:\n" + ByteBufUtil.prettyHexDump(ackData));
+                targetChannel.writeAndFlush(ackData).syncUninterruptibly();
+                this.vpnToAppAcknowledgementNumber = this.vpnToAppAcknowledgementNumber + inputTcpPacket.getData().length;
+                return;
+            }
+//            this.writeTargetDataSemaphore.release();
             return;
         }
         if (this.status == TcpIoLoopStatus.LAST_ACK) {

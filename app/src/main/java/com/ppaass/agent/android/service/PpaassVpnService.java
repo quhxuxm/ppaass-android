@@ -6,7 +6,6 @@ import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import com.ppaass.agent.android.R;
 import com.ppaass.agent.android.io.process.IIoLoop;
-import com.ppaass.agent.android.io.process.IoLoopGroup;
 import com.ppaass.agent.android.io.process.IoLoopHolder;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoop;
@@ -37,10 +36,10 @@ public class PpaassVpnService extends VpnService {
     private FileOutputStream vpnOutputStream;
     private ParcelFileDescriptor vpnInterface;
     private boolean alive;
-    private final IoLoopGroup ioLoopGroup;
+
 
     public PpaassVpnService() {
-        ioLoopGroup = new IoLoopGroup();
+
     }
 
     @Override
@@ -112,12 +111,8 @@ public class PpaassVpnService extends VpnService {
                                         , destinationAddress, destinationPort
                                 );
                         IIoLoop ioLoop = IoLoopHolder.INSTANCE.computeIfAbsent(ioLoopKey,
-                                (key) -> {
-                                    IIoLoop newLoop = new TcpIoLoop(sourceAddress, destinationAddress, sourcePort,
-                                            destinationPort, key, proxyTcpBootstrap, vpnOutputStream);
-                                    ioLoopGroup.submit(newLoop);
-                                    return newLoop;
-                                });
+                                (key) -> new TcpIoLoop(sourceAddress, destinationAddress, sourcePort,
+                                        destinationPort, key, proxyTcpBootstrap, vpnOutputStream));
                         ioLoop.execute(ipPacket);
                         continue;
                     }
@@ -133,18 +128,15 @@ public class PpaassVpnService extends VpnService {
                                         , destinationAddress, destinationPort
                                 );
                         IIoLoop ioLoop = IoLoopHolder.INSTANCE.computeIfAbsent(ioLoopKey,
-                                (key) -> {
-                                    IIoLoop newLoop = new UdpIoLoop(sourceAddress, destinationAddress, sourcePort,
-                                            destinationPort, key, proxyUdpBootstrap);
-                                    ioLoopGroup.submit(newLoop);
-                                    return newLoop;
-                                });
+                                (key) -> new UdpIoLoop(sourceAddress, destinationAddress, sourcePort,
+                                        destinationPort, key, proxyUdpBootstrap));
                         ioLoop.execute(ipPacket);
                         continue;
                     }
                     Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);
                     throw new UnsupportedOperationException("Do not support other protocol.");
                 } catch (IOException | InterruptedException e) {
+                    Log.e(PpaassVpnService.class.getName(), "Stop vpn service because of exception", e);
                     throw new RuntimeException(e);
                 }
             }
@@ -159,7 +151,7 @@ public class PpaassVpnService extends VpnService {
 
     private Bootstrap createProxyBootstrap(byte[] proxyPublicKey, byte[] agentPrivateKey) {
         Bootstrap proxyBootstrap = new Bootstrap();
-        proxyBootstrap.group(new NioEventLoopGroup(20));
+        proxyBootstrap.group(new NioEventLoopGroup(1));
         proxyBootstrap.channelFactory(() -> new VpnNioSocketChannel(PpaassVpnService.this));
         proxyBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 2000);
         proxyBootstrap.option(ChannelOption.SO_KEEPALIVE, false);

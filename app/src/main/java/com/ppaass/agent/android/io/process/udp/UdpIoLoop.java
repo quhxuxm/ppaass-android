@@ -56,8 +56,4 @@ public class UdpIoLoop implements IIoLoop {
     public int getDestinationPort() {
         return 0;
     }
-
-    @Override
-    public void run() {
-    }
 }
