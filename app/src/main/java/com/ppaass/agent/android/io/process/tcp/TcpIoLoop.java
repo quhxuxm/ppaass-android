@@ -145,7 +145,15 @@ public class TcpIoLoop implements IIoLoop, Runnable {
     public void destroy() {
         this.alive = false;
         this.status = TcpIoLoopStatus.CLOSED;
-        this.targetChannel = null;
+        if (this.targetChannel != null) {
+            try {
+                if (this.targetChannel.isOpen()) {
+                    this.targetChannel.close();
+                }
+            } catch (Exception e) {
+                Log.e(TcpIoLoop.class.getName(), "Fail to close target channel on tcp loop destroy.", e);
+            }
+        }
         IoLoopHolder.INSTANCE.remove(this.getKey());
     }
 
@@ -194,22 +202,10 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         while (this.alive) {
             final IpPacket inputIpPacket;
             try {
-                long startTime = System.currentTimeMillis();
-                Log.d(TcpIoLoop.class.getName(),
-                        "Begin to take input ip packet for tcp loop[start time=" + startTime + "], tcp loop = " + this);
                 inputIpPacket = this.ipPacketBlockingDeque.poll(20000L, TimeUnit.SECONDS);
-                long endTime = System.currentTimeMillis();
                 if (inputIpPacket == null) {
-                    Log.d(TcpIoLoop.class.getName(),
-                            "No ip packet for tcp loop in 20 seconds, skip and take again [end time=" + endTime +
-                                    ", use=" +
-                                    (endTime - startTime) / 1000 + "], ip packet = " + inputIpPacket + ", tcp loop = " +
-                                    this);
                     continue;
                 }
-                Log.d(TcpIoLoop.class.getName(),
-                        "Success take input ip packet for tcp loop[end time=" + endTime + ", use=" +
-                                (endTime - startTime) / 1000 + "], tcp loop = " + this);
             } catch (InterruptedException e) {
                 Log.e(TcpIoLoop.class.getName(), "Fail to take ip packet from input queue because of exception.", e);
                 this.destroy();
@@ -252,9 +248,53 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         }
     }
 
+    private void doSyn(IpPacket inputIpPacket) {
+        TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
+        TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+        Log.d(TcpIoLoop.class.getName(),
+                "RECEIVE SYN, initializing connection, input ip packet = " + inputIpPacket +
+                        ", tcp loop = " + this);
+        this.targetTcpBootstrap
+                .connect(this.destinationAddress, this.destinationPort).addListener(
+                (ChannelFutureListener) connectResultFuture -> {
+                    if (!connectResultFuture.isSuccess()) {
+                        Log.e(TcpIoLoop.class.getName(),
+                                "RECEIVE SYN FAIL, fail connect to target, input ip packet="
+                                        + inputIpPacket + " tcp loop = " + TcpIoLoop.this);
+                        synchronized (TcpIoLoop.this) {
+                            this.status = TcpIoLoopStatus.CLOSED;
+                        }
+                        return;
+                    }
+                    this.targetChannel = connectResultFuture.channel();
+                    this.targetChannel.attr(TCP_LOOP).setIfAbsent(TcpIoLoop.this);
+                    TcpHeaderOption mssOption = null;
+                    for (TcpHeaderOption option : inputTcpHeader.getOptions()) {
+                        if (option.getKind() == TcpHeaderOption.Kind.MSS) {
+                            mssOption = option;
+                            break;
+                        }
+                    }
+                    if (mssOption != null) {
+                        ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
+                        this.mss = mssOptionBuf.readUnsignedShort();
+                    }
+                    this.window = inputTcpHeader.getWindow();
+                    this.status = TcpIoLoopStatus.SYN_RECEIVED;
+                    this.vpnToAppSequenceNumber = BASE_SEQUENCE;
+                    this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
+                    Log.d(TcpIoLoop.class.getName(),
+                            "RECEIVE SYN[DO ACK], connect to target success, switch tcp loop status to SYN_RECEIVED, input ip packet = " +
+                                    inputIpPacket +
+                                    ", tcp loop = " + this);
+                    this.writeToApp(this.buildSynAck());
+                }).syncUninterruptibly();
+    }
+
     private void doRst(IpPacket inputIpPacket) {
         TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
         TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+        this.destroy();
     }
 
     private void doFin(IpPacket inputIpPacket) {
@@ -330,15 +370,13 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         }
         if (inputTcpHeader.isPsh()) {
             //Psh ack
-//            this.vpnToAppAcknowledgementNumber =
-//                    inputTcpHeader.getSequenceNumber() + inputTcpPacket.getData().length;
+            this.vpnToAppAcknowledgementNumber++;
             this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE PSH[DO ACK], write ACK to app side, input ip packet =" + inputIpPacket +
                             ", tcp loop = " +
                             this);
             this.writeToApp(this.buildAck(null));
-            this.vpnToAppSequenceNumber++;
             if (inputTcpPacket.getData().length > 0) {
                 Log.d(TcpIoLoop.class.getName(),
                         "RECEIVE PSH[DATA], send psh data to target, input ip packet =" + inputIpPacket +
@@ -416,49 +454,6 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         Log.e(TcpIoLoop.class.getName(),
                 "Tcp loop in illegal status, input ip packet = " + inputIpPacket + ", tcp loop = " + this);
         throw new IllegalStateException("Tcp loop[" + this.key + "] in illegal status");
-    }
-
-    private void doSyn(IpPacket inputIpPacket) {
-        TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
-        TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
-        Log.d(TcpIoLoop.class.getName(),
-                "RECEIVE SYN, initializing connection, input ip packet = " + inputIpPacket +
-                        ", tcp loop = " + this);
-        this.targetTcpBootstrap
-                .connect(this.destinationAddress, this.destinationPort).addListener(
-                (ChannelFutureListener) connectResultFuture -> {
-                    if (!connectResultFuture.isSuccess()) {
-                        Log.e(TcpIoLoop.class.getName(),
-                                "RECEIVE SYN FAIL, fail connect to target, input ip packet="
-                                        + inputIpPacket + " tcp loop = " + TcpIoLoop.this);
-                        synchronized (TcpIoLoop.this) {
-                            this.status = TcpIoLoopStatus.CLOSED;
-                        }
-                        return;
-                    }
-                    this.targetChannel = connectResultFuture.channel();
-                    this.targetChannel.attr(TCP_LOOP).setIfAbsent(TcpIoLoop.this);
-                    TcpHeaderOption mssOption = null;
-                    for (TcpHeaderOption option : inputTcpHeader.getOptions()) {
-                        if (option.getKind() == TcpHeaderOption.Kind.MSS) {
-                            mssOption = option;
-                            break;
-                        }
-                    }
-                    if (mssOption != null) {
-                        ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
-                        this.mss = mssOptionBuf.readUnsignedShort();
-                    }
-                    this.window = inputTcpHeader.getWindow();
-                    this.status = TcpIoLoopStatus.SYN_RECEIVED;
-                    this.vpnToAppSequenceNumber = BASE_SEQUENCE;
-                    this.vpnToAppAcknowledgementNumber = inputTcpHeader.getSequenceNumber() + 1;
-                    Log.d(TcpIoLoop.class.getName(),
-                            "RECEIVE SYN[DO ACK], connect to target success, switch tcp loop status to SYN_RECEIVED, input ip packet = " +
-                                    inputIpPacket +
-                                    ", tcp loop = " + this);
-                    this.writeToApp(this.buildSynAck());
-                }).syncUninterruptibly();
     }
 
     public synchronized void switchStatus(TcpIoLoopStatus status) {

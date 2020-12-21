@@ -44,7 +44,6 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
                 length = targetMessageByteBuf.readableBytes();
             }
             byte[] ackData = ByteBufUtil.getBytes(targetMessageByteBuf.readBytes(length));
-            tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + length);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
                     "DO ACK[TARGET DATA], receive target data, tcp loop = " + tcpIoLoop);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(), "TARGET DATA:\n" +
