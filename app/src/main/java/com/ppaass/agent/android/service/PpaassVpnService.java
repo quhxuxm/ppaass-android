@@ -136,8 +136,7 @@ public class PpaassVpnService extends VpnService {
                     Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);
                     throw new UnsupportedOperationException("Do not support other protocol.");
                 } catch (IOException | InterruptedException e) {
-                    Log.e(PpaassVpnService.class.getName(), "Stop vpn service because of exception", e);
-                    throw new RuntimeException(e);
+                    Log.e(PpaassVpnService.class.getName(), "Vpn service have exception", e);
                 }
             }
         });
