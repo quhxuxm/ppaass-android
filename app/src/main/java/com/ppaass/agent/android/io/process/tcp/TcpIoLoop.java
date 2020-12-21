@@ -370,7 +370,6 @@ public class TcpIoLoop implements IIoLoop, Runnable {
         }
         if (inputTcpHeader.isPsh()) {
             //Psh ack
-            this.vpnToAppAcknowledgementNumber++;
             this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE PSH[DO ACK], write ACK to app side, input ip packet =" + inputIpPacket +
@@ -387,12 +386,18 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                         "RECEIVE PSH[DATA], PSH DATA:\n" + ByteBufUtil.prettyHexDump(pshData));
                 targetChannel.writeAndFlush(pshData).syncUninterruptibly();
             }
+
+            this.vpnToAppAcknowledgementNumber = this.vpnToAppAcknowledgementNumber+inputTcpPacket.getData().length;
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE PSH[DO ACK - Finish Write], write ACK to app side, input ip packet =" + inputIpPacket +
+                            ", tcp loop = " +
+                            this);
             return;
         }
         if (this.status == TcpIoLoopStatus.ESTABLISHED) {
 //            this.vpnToAppAcknowledgementNumber =
 //                    inputTcpHeader.getSequenceNumber() + 1;
-            this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
+
             if (inputTcpHeader.isFin()) {
                 this.vpnToAppSequenceNumber = inputTcpPacket.getHeader().getAcknowledgementNumber();
                 this.vpnToAppAcknowledgementNumber = inputTcpPacket.getHeader().getSequenceNumber() + 1;
@@ -420,6 +425,7 @@ public class TcpIoLoop implements IIoLoop, Runnable {
                 }).syncUninterruptibly();
                 return;
             }
+            this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE ACK[ESTABLISHED], input ip packet =" + inputIpPacket +
                             ", tcp loop = " +

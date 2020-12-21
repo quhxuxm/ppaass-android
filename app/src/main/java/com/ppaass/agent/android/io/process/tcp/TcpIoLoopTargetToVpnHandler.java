@@ -19,17 +19,18 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
         final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
         tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
         tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+        Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
+                "Close tcp loop as target channel closed, tcp loop = " + tcpIoLoop);
         tcpIoLoop.writeToApp(tcpIoLoop.buildFin(null));
     }
-
-    @Override
-    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
-        Channel targetChannel = targetChannelContext.channel();
-        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
-        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
-        tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
-        tcpIoLoop.writeToApp(tcpIoLoop.buildFin(null));
-    }
+//    @Override
+//    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
+//        Channel targetChannel = targetChannelContext.channel();
+//        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
+//        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
+//        tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+//        tcpIoLoop.writeToApp(tcpIoLoop.buildFin(null));
+//    }
 
     @Override
     public void channelRead(ChannelHandlerContext targetChannelContext, Object targetMessage)
