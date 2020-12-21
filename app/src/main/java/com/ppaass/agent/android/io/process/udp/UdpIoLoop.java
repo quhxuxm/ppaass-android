@@ -4,6 +4,7 @@ import com.ppaass.agent.android.io.process.IIoLoop;
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.bootstrap.Bootstrap;
 
+import java.io.OutputStream;
 import java.net.InetAddress;
 
 public class UdpIoLoop implements IIoLoop {
@@ -55,5 +56,10 @@ public class UdpIoLoop implements IIoLoop {
     @Override
     public int getDestinationPort() {
         return 0;
+    }
+
+    @Override
+    public OutputStream getVpnOutput() {
+        return null;
     }
 }

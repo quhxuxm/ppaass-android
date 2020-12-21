@@ -21,16 +21,17 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
         tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
         Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
                 "Close tcp loop as target channel closed, tcp loop = " + tcpIoLoop);
-        tcpIoLoop.writeToApp(tcpIoLoop.buildFin(null));
+        TcpIoLoopOutputWriter.INSTANCE.writeFinForTcpIoLoop(tcpIoLoop);
     }
-//    @Override
-//    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
-//        Channel targetChannel = targetChannelContext.channel();
-//        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
-//        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
-//        tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
-//        tcpIoLoop.writeToApp(tcpIoLoop.buildFin(null));
-//    }
+
+    @Override
+    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
+        Channel targetChannel = targetChannelContext.channel();
+        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
+        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
+        tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+        TcpIoLoopOutputWriter.INSTANCE.writeFinForTcpIoLoop(tcpIoLoop);
+    }
 
     @Override
     public void channelRead(ChannelHandlerContext targetChannelContext, Object targetMessage)
@@ -49,7 +50,7 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
                     "DO ACK[TARGET DATA], receive target data, tcp loop = " + tcpIoLoop);
             Log.d(TcpIoLoopTargetToVpnHandler.class.getName(), "TARGET DATA:\n" +
                     ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(ackData)));
-            tcpIoLoop.writeToApp(tcpIoLoop.buildPshAck(ackData));
+            TcpIoLoopOutputWriter.INSTANCE.writePshAckForTcpIoLoop(tcpIoLoop, ackData);
         }
         ReferenceCountUtil.release(targetMessage);
     }

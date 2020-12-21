@@ -2,6 +2,7 @@ package com.ppaass.agent.android.io.process;
 
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 
+import java.io.OutputStream;
 import java.net.InetAddress;
 
 public interface IIoLoop {
@@ -18,4 +19,6 @@ public interface IIoLoop {
     int getSourcePort();
 
     int getDestinationPort();
+
+    OutputStream getVpnOutput();
 }
