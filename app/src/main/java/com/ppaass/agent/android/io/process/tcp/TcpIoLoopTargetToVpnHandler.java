@@ -24,14 +24,14 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
         TcpIoLoopOutputWriter.INSTANCE.writeFinForTcpIoLoop(tcpIoLoop);
     }
 
-    @Override
-    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
-        Channel targetChannel = targetChannelContext.channel();
-        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
-        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
-        tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
-        TcpIoLoopOutputWriter.INSTANCE.writeFinForTcpIoLoop(tcpIoLoop);
-    }
+//    @Override
+//    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
+//        Channel targetChannel = targetChannelContext.channel();
+//        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
+//        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
+//        tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
+//        TcpIoLoopOutputWriter.INSTANCE.writeFinForTcpIoLoop(tcpIoLoop);
+//    }
 
     @Override
     public void channelRead(ChannelHandlerContext targetChannelContext, Object targetMessage)
