@@ -2,8 +2,12 @@ package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
 import com.ppaass.agent.android.io.protocol.ip.*;
+import com.ppaass.agent.android.io.protocol.tcp.TcpHeaderOption;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacketBuilder;
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -14,9 +18,14 @@ public class TcpIoLoopOutputWriter {
     private TcpIoLoopOutputWriter() {
     }
 
-    public void writeIpPacket(IpPacket ipPacket, OutputStream outputStream) {
-        Log.d(TcpIoLoopOutputWriter.class.getName(), "WRITE TO APP, ip packet = " + ipPacket);
+    public void writeIpPacket(IpPacket ipPacket, TcpIoLoop tcpIoLoop, OutputStream outputStream) {
         try {
+            TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
+            byte[] tcpData = tcpPacket.getData();
+            Log.d(TcpIoLoopOutputWriter.class.getName(),
+                    "WRITE TO APP, ip packet = " + ipPacket + ", tcp loop = " + tcpIoLoop + ", DATA:\n" +
+                            ByteBufUtil.prettyHexDump(
+                                    Unpooled.wrappedBuffer(tcpData)));
             outputStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
             outputStream.flush();
         } catch (IOException e) {
@@ -26,38 +35,43 @@ public class TcpIoLoopOutputWriter {
 
     public void writeSynAckForTcpIoLoop(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
-        synAckTcpPacketBuilder.ack(true).syn(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop.getVpnOutput());
+        ByteBuf mssByteBuf=Unpooled.buffer();
+        mssByteBuf.writeShort(tcpIoLoop.getMss());
+        synAckTcpPacketBuilder
+                .addOption(new TcpHeaderOption(TcpHeaderOption.Kind.MSS, ByteBufUtil.getBytes(mssByteBuf)))
+                .ack(true).syn(true);
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
     }
 
     public void writeAckForTcpIoLoop(TcpIoLoop tcpIoLoop, byte[] data) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.ack(true).data(data);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
     }
 
     public void writePshAckForTcpIoLoop(TcpIoLoop tcpIoLoop, byte[] data) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
-        synAckTcpPacketBuilder.ack(true).psh(true).data(data);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop.getVpnOutput());
+        synAckTcpPacketBuilder
+                .ack(true).psh(true).data(data);
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
     }
 
     public void writeRstForTcpIoLoop(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.rst(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
     }
 
     public void writeFinForTcpIoLoop(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.fin(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
     }
 
     public void writeFinAckForTcpIoLoop(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.fin(true).ack(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
     }
 
     private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder, TcpIoLoop tcpIoLoop) {

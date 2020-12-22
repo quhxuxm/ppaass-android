@@ -161,6 +161,7 @@ public class TcpIoLoop implements IIoLoop {
             }
         }
         IoLoopHolder.INSTANCE.remove(this.getKey());
+//        this.ackSemaphore.release();
     }
 
     private void doSyn(IpPacket inputIpPacket) {
@@ -193,7 +194,8 @@ public class TcpIoLoop implements IIoLoop {
                     }
                     if (mssOption != null) {
                         ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
-                        this.mss = mssOptionBuf.readUnsignedShort();
+//                        this.mss = mssOptionBuf.readUnsignedShort();
+                        this.mss = 512;
                     }
                     this.window = inputTcpHeader.getWindow();
                     this.status = TcpIoLoopStatus.SYN_RECEIVED;
@@ -339,12 +341,12 @@ public class TcpIoLoop implements IIoLoop {
                 this.status=TcpIoLoopStatus.LAST_ACK;
                 return;
             }
+
             this.vpnToAppSequenceNumber = inputTcpHeader.getAcknowledgementNumber();
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE ACK[ESTABLISHED], input ip packet =" + inputIpPacket +
                             ", tcp loop = " +
                             this);
-            this.ackSemaphore.release();
             if (inputTcpPacket.getData().length > 0) {
                 this.vpnToAppAcknowledgementNumber = this.vpnToAppAcknowledgementNumber + inputTcpPacket.getData().length;
                 Log.d(TcpIoLoop.class.getName(),
@@ -355,6 +357,7 @@ public class TcpIoLoop implements IIoLoop {
                 Log.d(TcpIoLoop.class.getName(),
                         "RECEIVE ACK[ESTABLISHED with DATA], ACK DATA:\n" + ByteBufUtil.prettyHexDump(ackData));
                 targetChannel.writeAndFlush(ackData).syncUninterruptibly();
+                this.ackSemaphore.release();
                 return;
             }
             return;
