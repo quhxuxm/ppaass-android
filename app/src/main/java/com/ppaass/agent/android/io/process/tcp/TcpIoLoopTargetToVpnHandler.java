@@ -22,8 +22,8 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
         Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
                 "Close tcp loop as target channel closed, tcp loop = " + tcpIoLoop);
         TcpIoLoopOutputWriter.INSTANCE.writeFinForTcpIoLoop(tcpIoLoop);
+        tcpIoLoop.getAckSemaphore().release();
     }
-
 //    @Override
 //    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
 //        Channel targetChannel = targetChannelContext.channel();
@@ -40,7 +40,7 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
         final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
         ByteBuf targetMessageByteBuf = (ByteBuf) targetMessage;
         while (targetMessageByteBuf.isReadable()) {
-//            tcpIoLoop.getWriteTargetDataSemaphore().acquire();
+            tcpIoLoop.getAckSemaphore().acquire();
             int length = tcpIoLoop.getMss();
             if (targetMessageByteBuf.readableBytes() < length) {
                 length = targetMessageByteBuf.readableBytes();
