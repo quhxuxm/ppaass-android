@@ -21,6 +21,7 @@ import io.netty.channel.ChannelPipeline;
 import io.netty.channel.PreferHeapByteBufAllocator;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
+import io.netty.handler.codec.FixedLengthFrameDecoder;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -170,6 +171,7 @@ public class PpaassVpnService extends VpnService {
 //                proxyChannelPipeline.addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
 //                proxyChannelPipeline.addLast(new ProxyMessageDecoder(agentPrivateKey));
 //                proxyChannelPipeline.addLast(new TcpIoLoopProxyToVpnHandler());
+                proxyChannelPipeline.addLast(new FixedLengthFrameDecoder(1024));
                 proxyChannelPipeline.addLast(new TcpIoLoopTargetToVpnHandler());
                 // addLast(Lz4FrameEncoder())
 //                proxyChannelPipeline.addLast(new LengthFieldPrepender(4));
