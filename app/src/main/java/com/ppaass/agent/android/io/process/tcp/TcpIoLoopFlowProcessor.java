@@ -200,7 +200,6 @@ public class TcpIoLoopFlowProcessor {
                     tcpIoLoop.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
                     tcpIoLoop.setCurrentRemoteToDeviceSeq(BASE_SEQUENCE);
                     tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
-                    tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
                     Log.d(TcpIoLoopFlowProcessor.class.getName(),
                             "RECEIVE [SYN], initializing connection success, switch tcp loop to SYN_RECIVED, tcp header = " +
                                     inputTcpHeader +
@@ -212,31 +211,9 @@ public class TcpIoLoopFlowProcessor {
     private void doAck(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader, byte[] data) {
         Log.d(TcpIoLoopFlowProcessor.class.getName(),
                 "RECEIVE [ACK], get waiting device seq, tcp header = "+inputTcpHeader+", tcp loop = " + tcpIoLoop);
-        Long waitingDeviceSeq = tcpIoLoop.pollWaitingDeviceSeq();
-        if (waitingDeviceSeq == null) {
-            Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                    "RECEIVE [ACK], there is no waiting ack in the tcp loop, RST the connection, tcp header = " +
-                            inputTcpHeader +
-                            ", tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
-            this.tcpIoLoops.remove(tcpIoLoop.getKey());
-            tcpIoLoop.destroy();
-            return;
-        }
-        if (waitingDeviceSeq.compareTo(inputTcpHeader.getSequenceNumber()) != 0) {
-            Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                    "RECEIVE [ACK], the waiting ack for tcp loop is not the incoming one, RST the connection, tcp header = " +
-                            inputTcpHeader +
-                            ", tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
-            this.tcpIoLoops.remove(tcpIoLoop.getKey());
-            tcpIoLoop.destroy();
-            return;
-        }
         if (TcpIoLoopStatus.SYN_RECEIVED == tcpIoLoop.getStatus()) {
             //Should receive the ack of syn_ack.
             tcpIoLoop.setStatus(TcpIoLoopStatus.ESTABLISHED);
-            tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
             Log.d(TcpIoLoopFlowProcessor.class.getName(),
                     "RECEIVE [ACK], switch tcp loop to ESTABLISHED, tcp header =" + inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop);
@@ -256,7 +233,6 @@ public class TcpIoLoopFlowProcessor {
                 }
                 tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
                 ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
-                tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
                 Log.d(TcpIoLoop.class.getName(),
                         "RECEIVE [PSH ACK WITH DATA(size=" + data.length + ")], write data to remote, tcp header =" +
                                 inputTcpHeader +
@@ -276,7 +252,6 @@ public class TcpIoLoopFlowProcessor {
                 return;
             }
             tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
-            tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
             ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE [ACK WITH DATA(status=ESTABLISHED, size=" + data.length +
@@ -288,30 +263,10 @@ public class TcpIoLoopFlowProcessor {
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE1 == tcpIoLoop.getStatus()) {
-            Long waitingDeviceAck = tcpIoLoop.pollWaitingDeviceAck();
-            if (waitingDeviceAck == null) {
-                Log.e(TcpIoLoop.class.getName(),
-                        "RECEIVE [ACK(status=FIN_WAITE1)], no waiting device ack, reset connection, tcp header ="
-                                + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-                TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
-                this.tcpIoLoops.remove(tcpIoLoop.getKey());
-                tcpIoLoop.destroy();
-                return;
-            }
-            if (waitingDeviceAck.compareTo(inputTcpHeader.getAcknowledgementNumber()) == 0) {
-                Log.d(TcpIoLoop.class.getName(),
-                        "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
-                                + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-                tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
-                tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE2);
-                return;
-            }
-            Log.e(TcpIoLoop.class.getName(),
-                    "RECEIVE [ACK(status=FIN_WAITE1)], incoming ack is not expect reset connection, tcp header ="
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
                             + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
-            this.tcpIoLoops.remove(tcpIoLoop.getKey());
-            tcpIoLoop.destroy();
+            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE2);
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoop.getStatus()) {
@@ -359,7 +314,6 @@ public class TcpIoLoopFlowProcessor {
                         inputTcpHeader +
                         ", tcp loop = " + tcpIoLoop);
         TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
-        tcpIoLoop.offerWaitingDeviceAck(tcpIoLoop.getCurrentRemoteToDeviceSeq() + 1);
         tcpIoLoop.setStatus(TcpIoLoopStatus.LAST_ACK);
         Log.d(TcpIoLoop.class.getName(),
                 "RECEIVE [FIN], switch tcp loop status to LAST_ACK, tcp header =" +

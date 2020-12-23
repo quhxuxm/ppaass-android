@@ -19,20 +19,11 @@ public class TcpIoLoopDeviceToRemoteHandler extends ChannelDuplexHandler {
         Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
-        tcpIoLoop.offerWaitingDeviceAck(tcpIoLoop.getCurrentRemoteToDeviceSeq() + 1);
-        tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
+        tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
         Log.d(TcpIoLoopDeviceToRemoteHandler.class.getName(),
                 "Close tcp loop as remote channel closed, tcp loop = " + tcpIoLoop);
         TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop, remoteToDeviceStream);
     }
-//    @Override
-//    public void channelReadComplete(ChannelHandlerContext targetChannelContext) throws Exception {
-//        Channel targetChannel = targetChannelContext.channel();
-//        final TcpIoLoop tcpIoLoop = targetChannel.attr(IIoConstant.TCP_LOOP).get();
-//        tcpIoLoop.switchStatus(TcpIoLoopStatus.FIN_WAITE1);
-//        tcpIoLoop.setVpnToAppSequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber() + 1);
-//        TcpIoLoopOutputWriter.INSTANCE.writeFinForTcpIoLoop(tcpIoLoop);
-//    }
 
     @Override
     public void channelRead(ChannelHandlerContext remoteChannelContext, Object remoteMessage)
@@ -53,11 +44,9 @@ public class TcpIoLoopDeviceToRemoteHandler extends ChannelDuplexHandler {
             }
             byte[] ackData = ByteBufUtil.getBytes(remoteMessageByteBuf.readBytes(length));
             TcpIoLoopOutputWriter.INSTANCE.writePshAck(tcpIoLoop, ackData, remoteToDeviceStream);
-            tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
         }
         if (currentRemoteMessagePacketLength < remoteMessageByteBuf.capacity()) {
-            tcpIoLoop.offerWaitingDeviceAck(tcpIoLoop.getCurrentRemoteToDeviceSeq() + 1);
-            tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
+            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
             Log.d(TcpIoLoopDeviceToRemoteHandler.class.getName(),
                     "Close tcp loop as remote channel no more data, tcp loop = " + tcpIoLoop);
             TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop, remoteToDeviceStream);
