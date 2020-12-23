@@ -30,6 +30,7 @@ import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_LOO
 
 public class TcpIoLoopFlowProcessor {
     private static final int DEFAULT_WINDOW_SIZE_IN_BYTE = 65535;
+    private static final int DEFAULT_MSS_IN_BYTE = 256;
     private static final int DEFAULT_REMOTE_DATA_FRAME_LENGTH_IN_BYTE = 4096;
     private static final int BASE_SEQUENCE = (int) (Math.random() * 100000);
     private final VpnService vpnService;
@@ -193,7 +194,7 @@ public class TcpIoLoopFlowProcessor {
                     if (mssOption != null) {
                         ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
                         //this.mss = mssOptionBuf.readUnsignedShort();
-                        tcpIoLoop.setMss(256);
+                        tcpIoLoop.setMss(DEFAULT_MSS_IN_BYTE);
                     }
                     tcpIoLoop.setWindow(inputTcpHeader.getWindow());
                     tcpIoLoop.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
@@ -210,7 +211,7 @@ public class TcpIoLoopFlowProcessor {
 
     private void doAck(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader, byte[] data) {
         Log.d(TcpIoLoopFlowProcessor.class.getName(),
-                "RECEIVE [ACK], get waiting device seq, tcp header = inputTcpHeader, tcp loop = " + tcpIoLoop);
+                "RECEIVE [ACK], get waiting device seq, tcp header = "+inputTcpHeader+", tcp loop = " + tcpIoLoop);
         Long waitingDeviceSeq = tcpIoLoop.pollWaitingDeviceSeq();
         if (waitingDeviceSeq == null) {
             Log.e(TcpIoLoopFlowProcessor.class.getName(),
@@ -266,15 +267,6 @@ public class TcpIoLoopFlowProcessor {
             }
             tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
             if (data == null) {
-//            if (tcpIoLoop.noWaitingDeviceSeq()) {
-//                tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
-//                Log.d(TcpIoLoop.class.getName(),
-//                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, No Waiting Device Seq)], write FIN to device, tcp header =" +
-//                                inputTcpHeader +
-//                                ", tcp loop = " + tcpIoLoop);
-//                TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop, remoteToDeviceStream);
-//                return;
-//            }
                 tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
                 Log.d(TcpIoLoop.class.getName(),
                         "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED)], write ACK to device, tcp header =" +
@@ -367,12 +359,12 @@ public class TcpIoLoopFlowProcessor {
                         inputTcpHeader +
                         ", tcp loop = " + tcpIoLoop);
         TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
-        tcpIoLoop.offerWaitingDeviceAck(tcpIoLoop.getCurrentRemoteToDeviceSeq()+1);
+        tcpIoLoop.offerWaitingDeviceAck(tcpIoLoop.getCurrentRemoteToDeviceSeq() + 1);
         tcpIoLoop.setStatus(TcpIoLoopStatus.LAST_ACK);
         Log.d(TcpIoLoop.class.getName(),
                 "RECEIVE [FIN], switch tcp loop status to LAST_ACK, tcp header =" +
                         inputTcpHeader +
                         ", tcp loop = " + tcpIoLoop);
-        TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop,  this.remoteToDeviceStream);
+        TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop, this.remoteToDeviceStream);
     }
 }

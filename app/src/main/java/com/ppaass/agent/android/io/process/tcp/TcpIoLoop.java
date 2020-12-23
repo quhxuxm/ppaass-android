@@ -110,7 +110,7 @@ public class TcpIoLoop {
 
     public synchronized Long pollWaitingDeviceSeq() {
         try {
-            return waitingDeviceSeqQueue.poll(20000, TimeUnit.SECONDS);
+            return waitingDeviceSeqQueue.poll(2000, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             return null;
         }
@@ -126,7 +126,7 @@ public class TcpIoLoop {
 
     public synchronized Long pollWaitingDeviceAck() {
         try {
-            return waitingDeviceAckQueue.poll(20000, TimeUnit.SECONDS);
+            return waitingDeviceAckQueue.poll(2000, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             return null;
         }
