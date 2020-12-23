@@ -1,21 +1,21 @@
 package com.ppaass.agent.android.io.process.common;
 
-import com.ppaass.agent.android.service.PpaassVpnService;
+import android.net.VpnService;
 import io.netty.channel.socket.nio.NioSocketChannel;
 
 import java.nio.channels.SocketChannel;
 
 public class VpnNioSocketChannel extends NioSocketChannel {
-    private final PpaassVpnService ppaassVpnService;
+    private final VpnService vpnService;
 
-    public VpnNioSocketChannel(PpaassVpnService ppaassVpnService) {
-        this.ppaassVpnService = ppaassVpnService;
+    public VpnNioSocketChannel(VpnService vpnService) {
+        this.vpnService = vpnService;
     }
 
     @Override
     protected SocketChannel javaChannel() {
         SocketChannel result = super.javaChannel();
-        this.ppaassVpnService.protect(result.socket());
+        this.vpnService.protect(result.socket());
         return result;
     }
 }

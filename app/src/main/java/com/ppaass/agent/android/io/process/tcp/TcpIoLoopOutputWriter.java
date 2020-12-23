@@ -18,7 +18,7 @@ public class TcpIoLoopOutputWriter {
     private TcpIoLoopOutputWriter() {
     }
 
-    public void writeIpPacket(IpPacket ipPacket, TcpIoLoop tcpIoLoop, OutputStream outputStream) {
+    public void writeIpPacket(IpPacket ipPacket, TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         try {
             TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
             byte[] tcpData = tcpPacket.getData();
@@ -26,52 +26,52 @@ public class TcpIoLoopOutputWriter {
                     "WRITE TO APP, ip packet = " + ipPacket + ", tcp loop = " + tcpIoLoop + ", DATA:\n" +
                             ByteBufUtil.prettyHexDump(
                                     Unpooled.wrappedBuffer(tcpData)));
-            outputStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
-            outputStream.flush();
+            remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
+            remoteToDeviceStream.flush();
         } catch (IOException e) {
             Log.e(TcpIoLoopOutputWriter.class.getName(), "Fail to write ip packet to app because of exception.", e);
         }
     }
 
-    public void writeSynAckForTcpIoLoop(TcpIoLoop tcpIoLoop) {
+    public void writeSynAck(TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
-        ByteBuf mssByteBuf=Unpooled.buffer();
+        ByteBuf mssByteBuf = Unpooled.buffer();
         mssByteBuf.writeShort(tcpIoLoop.getMss());
         synAckTcpPacketBuilder
                 .addOption(new TcpHeaderOption(TcpHeaderOption.Kind.MSS, ByteBufUtil.getBytes(mssByteBuf)))
                 .ack(true).syn(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
-    public void writeAckForTcpIoLoop(TcpIoLoop tcpIoLoop, byte[] data) {
+    public void writeAck(TcpIoLoop tcpIoLoop, byte[] data, OutputStream remoteToDeviceStream) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.ack(true).data(data);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
-    public void writePshAckForTcpIoLoop(TcpIoLoop tcpIoLoop, byte[] data) {
+    public void writePshAck(TcpIoLoop tcpIoLoop, byte[] data, OutputStream remoteToDeviceStream) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder
                 .ack(true).psh(true).data(data);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
-    public void writeRstForTcpIoLoop(TcpIoLoop tcpIoLoop) {
+    public void writeRst(TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.rst(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
-    public void writeFinForTcpIoLoop(TcpIoLoop tcpIoLoop) {
+    public void writeFin(TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.fin(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
-    public void writeFinAckForTcpIoLoop(TcpIoLoop tcpIoLoop) {
+    public void writeFinAck(TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
         synAckTcpPacketBuilder.fin(true).ack(true);
-        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, tcpIoLoop.getVpnOutput());
+        this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
     private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder, TcpIoLoop tcpIoLoop) {
@@ -82,8 +82,8 @@ public class TcpIoLoopOutputWriter {
                         .sourceAddress(tcpIoLoop.getDestinationAddress().getAddress())
                         .protocol(IpDataProtocol.TCP).identification(identification).build();
         tcpPacketBuilder
-                .sequenceNumber(tcpIoLoop.getVpnToAppSequenceNumber())
-                .acknowledgementNumber(tcpIoLoop.getVpnToAppAcknowledgementNumber())
+                .sequenceNumber(tcpIoLoop.getCurrentRemoteToDeviceSeq())
+                .acknowledgementNumber(tcpIoLoop.getCurrentRemoteToDeviceAck())
                 .destinationPort(tcpIoLoop.getSourcePort())
                 .sourcePort(tcpIoLoop.getDestinationPort()).window(65535);
         IpPacketBuilder ipPacketBuilder = new IpPacketBuilder();
