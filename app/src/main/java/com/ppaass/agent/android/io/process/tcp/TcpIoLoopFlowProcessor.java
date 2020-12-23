@@ -133,30 +133,24 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void executeFlow(TcpIoLoop tcpIoLoop, IpPacket inputIpPacket) {
-        this.processorThreadPool.execute(() -> {
-            TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
-            TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
-            if (inputTcpHeader.isSyn()) {
-                doSyn(tcpIoLoop, inputTcpHeader);
-                return;
+        TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
+        TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+        if (inputTcpHeader.isSyn()) {
+            doSyn(tcpIoLoop, inputTcpHeader);
+            return;
+        }
+        if (inputTcpHeader.isAck()) {
+            byte[] inputData = inputTcpPacket.getData();
+            if (inputData != null && inputData.length == 0) {
+                inputData = null;
             }
-            if (inputTcpHeader.isAck()) {
-                byte[] inputData = inputTcpPacket.getData();
-                if (inputData != null && inputData.length == 0) {
-                    inputData = null;
-                }
-                doAck(tcpIoLoop, inputTcpHeader, inputData);
-                return;
-            }
-            if (inputTcpHeader.isFin()) {
-                doFin(tcpIoLoop, inputTcpHeader);
-                return;
-            }
-            if (inputTcpHeader.isRst()) {
-                doRst(tcpIoLoop, inputTcpHeader);
-                return;
-            }
-        });
+            doAck(tcpIoLoop, inputTcpHeader, inputData);
+            return;
+        }
+        if (inputTcpHeader.isRst()) {
+            doRst(tcpIoLoop, inputTcpHeader);
+            return;
+        }
     }
 
     private void doSyn(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader) {
@@ -241,6 +235,19 @@ public class TcpIoLoopFlowProcessor {
                 tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
                 return;
             }
+            if(inputTcpHeader.isFin()){
+                if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoop.getStatus()) {
+                    tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
+                    tcpIoLoop.setStatus(TcpIoLoopStatus.TIME_WAITE);
+                    Log.d(TcpIoLoop.class.getName(),
+                            "RECEIVE [ACK(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
+                                    + inputTcpHeader + " tcp loop = " + tcpIoLoop);
+                    TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+                    this.tcpIoLoops.remove(tcpIoLoop.getKey());
+                    tcpIoLoop.destroy();
+                    return;
+                }
+            }
             tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
             if (data == null) {
                 tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
@@ -269,17 +276,6 @@ public class TcpIoLoopFlowProcessor {
             tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE2);
             return;
         }
-        if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoop.getStatus()) {
-            tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
-            tcpIoLoop.setStatus(TcpIoLoopStatus.TIME_WAITE);
-            Log.d(TcpIoLoop.class.getName(),
-                    "RECEIVE [ACK(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
-                            + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
-            this.tcpIoLoops.remove(tcpIoLoop.getKey());
-            tcpIoLoop.destroy();
-            return;
-        }
         if (TcpIoLoopStatus.LAST_ACK == tcpIoLoop.getStatus()) {
             tcpIoLoop.setStatus(TcpIoLoopStatus.CLOSED);
             Log.d(TcpIoLoop.class.getName(),
@@ -292,7 +288,6 @@ public class TcpIoLoopFlowProcessor {
         Log.e(TcpIoLoop.class.getName(),
                 "Tcp loop in illegal state, send RST back to device, tcp header ="
                         + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-        TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
         this.tcpIoLoops.remove(tcpIoLoop.getKey());
         tcpIoLoop.destroy();
     }

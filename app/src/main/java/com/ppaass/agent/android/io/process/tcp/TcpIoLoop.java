@@ -17,7 +17,6 @@ public class TcpIoLoop {
     private int window;
     private Channel remoteChannel;
 
-
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort,
                      int destinationPort) {
         this.sourceAddress = sourceAddress;
@@ -28,7 +27,6 @@ public class TcpIoLoop {
         this.status = TcpIoLoopStatus.CLOSED;
         this.mss = -1;
         this.window = -1;
-
     }
 
     public String getKey() {
@@ -98,8 +96,6 @@ public class TcpIoLoop {
     public synchronized void setCurrentRemoteToDeviceAck(long currentRemoteToDeviceAck) {
         this.currentRemoteToDeviceAck = currentRemoteToDeviceAck;
     }
-
-
 
     public void destroy() {
         if (this.remoteChannel != null) {
