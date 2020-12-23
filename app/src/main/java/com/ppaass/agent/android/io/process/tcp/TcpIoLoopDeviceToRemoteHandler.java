@@ -9,8 +9,8 @@ import io.netty.util.ReferenceCountUtil;
 import java.io.OutputStream;
 
 @ChannelHandler.Sharable
-public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
-    public TcpIoLoopTargetToVpnHandler() {
+public class TcpIoLoopDeviceToRemoteHandler extends ChannelDuplexHandler {
+    public TcpIoLoopDeviceToRemoteHandler() {
     }
 
     @Override
@@ -18,7 +18,10 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
         Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
-        Log.d(TcpIoLoopTargetToVpnHandler.class.getName(),
+        tcpIoLoop.offerWaitingDeviceAck(tcpIoLoop.getCurrentRemoteToDeviceSeq() + 1);
+        tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
+        tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
+        Log.d(TcpIoLoopDeviceToRemoteHandler.class.getName(),
                 "Close tcp loop as remote channel closed, tcp loop = " + tcpIoLoop);
         TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop, remoteToDeviceStream);
     }
@@ -38,6 +41,10 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
         ByteBuf remoteMessageByteBuf = (ByteBuf) remoteMessage;
+        int currentRemoteMessagePacketLength = remoteMessageByteBuf.readableBytes();
+        Log.d(TcpIoLoopDeviceToRemoteHandler.class.getName(),
+                "Current remote message packet size = " + currentRemoteMessagePacketLength + ", tcp loop = " +
+                        tcpIoLoop);
         while (remoteMessageByteBuf.isReadable()) {
             int length = tcpIoLoop.getMss();
             if (remoteMessageByteBuf.readableBytes() < length) {
@@ -54,7 +61,7 @@ public class TcpIoLoopTargetToVpnHandler extends ChannelDuplexHandler {
     public void exceptionCaught(ChannelHandlerContext remoteChannelContext, Throwable cause) throws Exception {
         Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
-        Log.e(TcpIoLoopTargetToVpnHandler.class.getName(), "Exception happen on tcp loop, tcp loop =  " + tcpIoLoop,
+        Log.e(TcpIoLoopDeviceToRemoteHandler.class.getName(), "Exception happen on tcp loop, tcp loop =  " + tcpIoLoop,
                 cause);
     }
 }

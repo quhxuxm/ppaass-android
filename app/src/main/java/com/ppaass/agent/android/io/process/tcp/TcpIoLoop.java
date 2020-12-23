@@ -20,6 +20,7 @@ public class TcpIoLoop {
     private int window;
     private Channel remoteChannel;
     private final BlockingDeque<Long> waitingDeviceSeqQueue;
+    private final BlockingDeque<Long> waitingDeviceAckQueue;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort,
                      int destinationPort) {
@@ -32,6 +33,7 @@ public class TcpIoLoop {
         this.mss = -1;
         this.window = -1;
         this.waitingDeviceSeqQueue = new LinkedBlockingDeque<>();
+        this.waitingDeviceAckQueue = new LinkedBlockingDeque<>();
     }
 
     public String getKey() {
@@ -102,11 +104,8 @@ public class TcpIoLoop {
         this.currentRemoteToDeviceAck = currentRemoteToDeviceAck;
     }
 
-    public synchronized void offerWaitingDeviceSeq(Long waitingAckNumber) {
-//        if (this.waitingDeviceSeqQueue.contains(waitingAckNumber)) {
-//            return;
-//        }
-        waitingDeviceSeqQueue.offer(waitingAckNumber);
+    public synchronized void offerWaitingDeviceSeq(Long waitingSeqNumber) {
+        waitingDeviceSeqQueue.offer(waitingSeqNumber);
     }
 
     public synchronized Long pollWaitingDeviceSeq() {
@@ -117,8 +116,20 @@ public class TcpIoLoop {
         }
     }
 
-    public synchronized  boolean isNoWaitingDeviceSeq(){
+    public synchronized boolean noWaitingDeviceSeq() {
         return this.waitingDeviceSeqQueue.isEmpty();
+    }
+
+    public synchronized void offerWaitingDeviceAck(Long waitingAckNumber) {
+        waitingDeviceAckQueue.offer(waitingAckNumber);
+    }
+
+    public synchronized Long pollWaitingDeviceAck() {
+        try {
+            return waitingDeviceAckQueue.poll(20000, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            return null;
+        }
     }
 
     public void destroy() {
@@ -142,6 +153,7 @@ public class TcpIoLoop {
                 ", currentRemoteToDeviceAck=" + currentRemoteToDeviceAck +
                 ", remoteChannel =" + (remoteChannel == null ? "" : remoteChannel.id().asShortText()) +
                 ", waitingDeviceSeqQueue=" + this.waitingDeviceSeqQueue +
+                ", waitingDeviceAckQueue=" + this.waitingDeviceAckQueue +
                 '}';
     }
 }

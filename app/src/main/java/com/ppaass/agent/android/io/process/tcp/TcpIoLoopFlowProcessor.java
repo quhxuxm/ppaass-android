@@ -124,7 +124,7 @@ public class TcpIoLoopFlowProcessor {
             @Override
             protected void initChannel(SocketChannel remoteChannel) {
                 ChannelPipeline remoteChannelPipeline = remoteChannel.pipeline();
-                remoteChannelPipeline.addLast(new TcpIoLoopTargetToVpnHandler());
+                remoteChannelPipeline.addLast(new TcpIoLoopDeviceToRemoteHandler());
             }
         });
         remoteBootstrap.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM, this.remoteToDeviceStream);
@@ -209,6 +209,8 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void doAck(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader, byte[] data) {
+        Log.d(TcpIoLoopFlowProcessor.class.getName(),
+                "RECEIVE [ACK], get waiting device seq, tcp header = inputTcpHeader, tcp loop = " + tcpIoLoop);
         Long waitingDeviceSeq = tcpIoLoop.pollWaitingDeviceSeq();
         if (waitingDeviceSeq == null) {
             Log.e(TcpIoLoopFlowProcessor.class.getName(),
@@ -239,59 +241,113 @@ public class TcpIoLoopFlowProcessor {
                             ", tcp loop = " + tcpIoLoop);
             return;
         }
-        if (TcpIoLoopStatus.ESTABLISHED != tcpIoLoop.getStatus()) {
-            Log.e(TcpIoLoop.class.getName(),
-                    "RECEIVE [ACK], but tcp loop is not ESTABLISHED, send RST back to device, tcp header ="
-                            + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
-            this.tcpIoLoops.remove(tcpIoLoop.getKey());
-            tcpIoLoop.destroy();
-            return;
-        }
-        if (inputTcpHeader.isPsh()) {
-            //Psh ack
-            tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
-            if (data == null) {
-                tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() );
+        if (TcpIoLoopStatus.ESTABLISHED == tcpIoLoop.getStatus()) {
+            if (inputTcpHeader.isPsh()) {
+                //Psh ack
+                tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+                if (data == null) {
+                    tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+                    Log.d(TcpIoLoop.class.getName(),
+                            "RECEIVE [PSH ACK WITHOUT DATA], write ACK to device, tcp header =" + inputTcpHeader +
+                                    ", tcp loop = " + tcpIoLoop);
+                    TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+                    return;
+                }
+                tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
+                ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
                 tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
                 Log.d(TcpIoLoop.class.getName(),
-                        "RECEIVE [PSH ACK WITHOUT DATA], write ACK to device, tcp header =" + inputTcpHeader +
+                        "RECEIVE [PSH ACK WITH DATA(size=" + data.length + ")], write data to remote, tcp header =" +
+                                inputTcpHeader +
+                                ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(pshDataByteBuf));
+                TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+                tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
+                return;
+            }
+            tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+            if (data == null) {
+//            if (tcpIoLoop.noWaitingDeviceSeq()) {
+//                tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+//                Log.d(TcpIoLoop.class.getName(),
+//                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, No Waiting Device Seq)], write FIN to device, tcp header =" +
+//                                inputTcpHeader +
+//                                ", tcp loop = " + tcpIoLoop);
+//                TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop, remoteToDeviceStream);
+//                return;
+//            }
+                tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+                Log.d(TcpIoLoop.class.getName(),
+                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED)], write ACK to device, tcp header =" +
+                                inputTcpHeader +
                                 ", tcp loop = " + tcpIoLoop);
                 TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
                 return;
             }
             tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
-            ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
             tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
+            ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
             Log.d(TcpIoLoop.class.getName(),
-                    "RECEIVE [PSH ACK WITH DATA(size=" + data.length + ")], write data to remote, tcp header =" +
+                    "RECEIVE [ACK WITH DATA(status=ESTABLISHED, size=" + data.length +
+                            ")], write data to remote, tcp header =" +
                             inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(pshDataByteBuf));
             TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
             tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
             return;
         }
-        tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
-        if (data == null) {
-            tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
-            tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
-            Log.d(TcpIoLoop.class.getName(),
-                    "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED)], write ACK to device, tcp header =" +
-                            inputTcpHeader +
-                            ", tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+        if (TcpIoLoopStatus.FIN_WAITE1 == tcpIoLoop.getStatus()) {
+            Long waitingDeviceAck = tcpIoLoop.pollWaitingDeviceAck();
+            if (waitingDeviceAck == null) {
+                Log.e(TcpIoLoop.class.getName(),
+                        "RECEIVE [ACK(status=FIN_WAITE1)], no waiting device ack, reset connection, tcp header ="
+                                + inputTcpHeader + " tcp loop = " + tcpIoLoop);
+                TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
+                this.tcpIoLoops.remove(tcpIoLoop.getKey());
+                tcpIoLoop.destroy();
+                return;
+            }
+            if (waitingDeviceAck.compareTo(inputTcpHeader.getAcknowledgementNumber()) == 0) {
+                Log.d(TcpIoLoop.class.getName(),
+                        "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
+                                + inputTcpHeader + " tcp loop = " + tcpIoLoop);
+                tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
+                tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE2);
+                return;
+            }
+            Log.e(TcpIoLoop.class.getName(),
+                    "RECEIVE [ACK(status=FIN_WAITE1)], incoming ack is not expect reset connection, tcp header ="
+                            + inputTcpHeader + " tcp loop = " + tcpIoLoop);
+            TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
+            this.tcpIoLoops.remove(tcpIoLoop.getKey());
+            tcpIoLoop.destroy();
             return;
         }
-        tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
-        tcpIoLoop.offerWaitingDeviceSeq(tcpIoLoop.getCurrentRemoteToDeviceAck());
-        ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
-        Log.d(TcpIoLoop.class.getName(),
-                "RECEIVE [PSH ACK WITH DATA(status=ESTABLISHED, size=" + data.length +
-                        ")], write data to remote, tcp header =" +
-                        inputTcpHeader +
-                        ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(pshDataByteBuf));
-        TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
-        tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
+        if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoop.getStatus()) {
+            tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
+            tcpIoLoop.setStatus(TcpIoLoopStatus.TIME_WAITE);
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE [ACK(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
+                            + inputTcpHeader + " tcp loop = " + tcpIoLoop);
+            TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+            this.tcpIoLoops.remove(tcpIoLoop.getKey());
+            tcpIoLoop.destroy();
+            return;
+        }
+        if (TcpIoLoopStatus.LAST_ACK == tcpIoLoop.getStatus()) {
+            tcpIoLoop.setStatus(TcpIoLoopStatus.CLOSED);
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE [ACK(status=LAST_ACK)], close tcp loop, tcp header ="
+                            + inputTcpHeader + " tcp loop = " + tcpIoLoop);
+            this.tcpIoLoops.remove(tcpIoLoop.getKey());
+            tcpIoLoop.destroy();
+            return;
+        }
+        Log.e(TcpIoLoop.class.getName(),
+                "Tcp loop in illegal state, send RST back to device, tcp header ="
+                        + inputTcpHeader + " tcp loop = " + tcpIoLoop);
+        TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
+        this.tcpIoLoops.remove(tcpIoLoop.getKey());
+        tcpIoLoop.destroy();
     }
 
     private void doRst(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader) {
@@ -304,9 +360,19 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void doFin(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader) {
+        tcpIoLoop.setStatus(TcpIoLoopStatus.CLOSE_WAIT);
+        tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
         Log.d(TcpIoLoop.class.getName(),
-                "RECEIVE [FIN], destroy tcp loop, tcp header =" +
+                "RECEIVE [FIN], switch tcp loop status to CLOSE_WAIT, tcp header =" +
                         inputTcpHeader +
                         ", tcp loop = " + tcpIoLoop);
+        TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+        tcpIoLoop.offerWaitingDeviceAck(tcpIoLoop.getCurrentRemoteToDeviceSeq()+1);
+        tcpIoLoop.setStatus(TcpIoLoopStatus.LAST_ACK);
+        Log.d(TcpIoLoop.class.getName(),
+                "RECEIVE [FIN], switch tcp loop status to LAST_ACK, tcp header =" +
+                        inputTcpHeader +
+                        ", tcp loop = " + tcpIoLoop);
+        TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoop,  this.remoteToDeviceStream);
     }
 }
