@@ -159,6 +159,8 @@ public class TcpIoLoopFlowProcessor {
                     "Tcp loop is NOT in LISTEN status, return RST back to device, tcp header = " + inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop);
             TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
+            this.tcpIoLoops.remove(tcpIoLoop.getKey());
+            tcpIoLoop.destroy();
             return;
         }
         Log.v(TcpIoLoopFlowProcessor.class.getName(),
