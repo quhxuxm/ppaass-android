@@ -168,8 +168,9 @@ public class TcpIoLoopFlowProcessor {
             Log.e(TcpIoLoopFlowProcessor.class.getName(),
                     "Tcp loop is NOT in LISTEN status, return RST back to device, tcp header = " + inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
-            tcpIoLoop.destroy();
+            tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+            tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+            TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoop, this.remoteToDeviceStream);
             return;
         }
         Log.v(TcpIoLoopFlowProcessor.class.getName(),
@@ -179,11 +180,12 @@ public class TcpIoLoopFlowProcessor {
                 .connect(tcpIoLoop.getDestinationAddress(), tcpIoLoop.getDestinationPort()).addListener(
                 (ChannelFutureListener) connectResultFuture -> {
                     if (!connectResultFuture.isSuccess()) {
-                        Log.e(TcpIoLoop.class.getName(),
+                        Log.e(TcpIoLoopFlowProcessor.class.getName(),
                                 "RECEIVE [SYN], initialize connection FAIL send RST back to device, tcp header ="
                                         + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-                        TcpIoLoopOutputWriter.INSTANCE.writeRst(tcpIoLoop, this.remoteToDeviceStream);
-                        tcpIoLoop.destroy();
+                        tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+                        tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+                        TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoop, this.remoteToDeviceStream);
                         return;
                     }
                     tcpIoLoop.setRemoteChannel(connectResultFuture.channel());
@@ -285,15 +287,21 @@ public class TcpIoLoopFlowProcessor {
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoop.getStatus()) {
-            tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
+            long ackIn2MslTimer = inputTcpHeader.getSequenceNumber() + 1;
+            long seqIn2MslTimer = inputTcpHeader.getAcknowledgementNumber();
             tcpIoLoop.setStatus(TcpIoLoopStatus.TIME_WAITE);
-            Log.d(TcpIoLoop.class.getName(),
+            Log.d(TcpIoLoopFlowProcessor.class.getName(),
                     "RECEIVE [ACK(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
                             + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-            Timer _2mlTimer = new Timer();
-            _2mlTimer.schedule(new TimerTask() {
+            Timer twoMslTimer = new Timer();
+            twoMslTimer.schedule(new TimerTask() {
                 @Override
                 public void run() {
+                    tcpIoLoop.setCurrentRemoteToDeviceAck(ackIn2MslTimer);
+                    tcpIoLoop.setCurrentRemoteToDeviceSeq(seqIn2MslTimer);
+                    Log.d(TcpIoLoopFlowProcessor.class.getName(),
+                            "SEND [ACK(status=TIME_WAITE)], destroy connection in 2MSL, send ack, tcp header ="
+                                    + inputTcpHeader + " tcp loop = " + tcpIoLoop);
                     TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, remoteToDeviceStream);
                     tcpIoLoop.destroy();
                 }
@@ -311,7 +319,10 @@ public class TcpIoLoopFlowProcessor {
         Log.e(TcpIoLoop.class.getName(),
                 "Tcp loop in illegal state, send RST back to device, tcp header ="
                         + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-        tcpIoLoop.destroy();
+        tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+        tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+        TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoop, remoteToDeviceStream);
+//        tcpIoLoop.destroy();
     }
 
     private void doRst(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader) {

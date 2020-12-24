@@ -93,9 +93,9 @@ public class TcpIoLoopOutputWriter {
         this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
-    public void writeRst(TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
+    public void writeRstAck(TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         TcpPacketBuilder synAckTcpPacketBuilder = new TcpPacketBuilder();
-        synAckTcpPacketBuilder.rst(true);
+        synAckTcpPacketBuilder.rst(true).ack(true);
         this.writeIpPacket(this.buildIpPacket(synAckTcpPacketBuilder, tcpIoLoop), tcpIoLoop, remoteToDeviceStream);
     }
 
