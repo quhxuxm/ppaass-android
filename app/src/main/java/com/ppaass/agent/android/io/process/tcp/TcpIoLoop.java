@@ -3,6 +3,8 @@ package com.ppaass.agent.android.io.process.tcp;
 import io.netty.channel.Channel;
 
 import java.net.InetAddress;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
 
 public class TcpIoLoop {
     private final InetAddress sourceAddress;
@@ -16,17 +18,22 @@ public class TcpIoLoop {
     private int mss;
     private int window;
     private Channel remoteChannel;
+    private final Semaphore ackSemaphore;
+    private final ConcurrentMap<String, TcpIoLoop> container;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort,
-                     int destinationPort) {
+                     int destinationPort,
+                     ConcurrentMap<String, TcpIoLoop> container) {
         this.sourceAddress = sourceAddress;
         this.destinationAddress = destinationAddress;
         this.sourcePort = sourcePort;
         this.destinationPort = destinationPort;
         this.key = key;
+        this.container = container;
         this.status = TcpIoLoopStatus.CLOSED;
         this.mss = -1;
         this.window = -1;
+        this.ackSemaphore = new Semaphore(1);
     }
 
     public String getKey() {
@@ -97,10 +104,20 @@ public class TcpIoLoop {
         this.currentRemoteToDeviceAck = currentRemoteToDeviceAck;
     }
 
-    public void destroy() {
+    public Semaphore getAckSemaphore() {
+        return ackSemaphore;
+    }
+
+    public synchronized void destroy() {
+        this.ackSemaphore.release();
+        this.status = TcpIoLoopStatus.CLOSED;
+        this.currentRemoteToDeviceAck = 0;
+        this.currentRemoteToDeviceSeq = 0;
         if (this.remoteChannel != null) {
             this.remoteChannel.close();
+            this.remoteChannel = null;
         }
+        this.container.remove(this.key);
     }
 
     @Override

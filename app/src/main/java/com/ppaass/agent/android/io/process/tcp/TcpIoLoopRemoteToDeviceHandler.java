@@ -39,20 +39,29 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelDuplexHandler {
                 "Current remote message packet size = " + currentRemoteMessagePacketLength + ", buffer capacity = " +
                         remoteMessageByteBuf.capacity() + ", tcp loop = " +
                         tcpIoLoop);
+//        int sentBytes = 0;
         while (remoteMessageByteBuf.isReadable()) {
+            tcpIoLoop.getAckSemaphore().acquire();
             int length = tcpIoLoop.getMss();
             if (remoteMessageByteBuf.readableBytes() < length) {
                 length = remoteMessageByteBuf.readableBytes();
             }
             byte[] ackData = ByteBufUtil.getBytes(remoteMessageByteBuf.readBytes(length));
+//            if ((sentBytes + length) >= tcpIoLoop.getWindow()) {
+//                tcpIoLoop.getAckSemaphore().acquire();
+//                sentBytes = length;
+//            } else {
+//                sentBytes += length;
+//            }
             TcpIoLoopOutputWriter.INSTANCE.writePshAck(tcpIoLoop, ackData, remoteToDeviceStream);
         }
-//        if (currentRemoteMessagePacketLength < remoteMessageByteBuf.capacity()) {
-//            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
-//            Log.d(TcpIoLoopDeviceToRemoteHandler.class.getName(),
-//                    "Close tcp loop as remote channel no more data, tcp loop = " + tcpIoLoop);
-//            TcpIoLoopOutputWriter.INSTANCE.writeFinAck(tcpIoLoop, remoteToDeviceStream);
-//        }
+        if (currentRemoteMessagePacketLength < remoteMessageByteBuf.capacity()) {
+            tcpIoLoop.getAckSemaphore().acquire();
+            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
+            Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
+                    "Close tcp loop as remote channel no more data, tcp loop = " + tcpIoLoop);
+            TcpIoLoopOutputWriter.INSTANCE.writeFinAck(tcpIoLoop, remoteToDeviceStream);
+        }
         ReferenceCountUtil.release(remoteMessage);
     }
 
