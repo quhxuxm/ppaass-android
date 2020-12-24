@@ -51,12 +51,18 @@ public class TcpIoLoopOutputWriter {
                 }
             }
             byte[] tcpData = tcpPacket.getData();
-            Log.d(TcpIoLoopOutputWriter.class.getName(),
-                    "WRITE TO DEVICE [" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +
-                            ", tcp loop = " + tcpIoLoop +
-                            ", DATA:\n" +
-                            ByteBufUtil.prettyHexDump(
-                                    Unpooled.wrappedBuffer(tcpData)));
+            if (tcpData.length == 0) {
+                Log.d(TcpIoLoopOutputWriter.class.getName(),
+                        "WRITE TO DEVICE [" + packetType + ", NO DATA, size=" + tcpData.length + "], ip packet = " + ipPacket +
+                                ", tcp loop = " + tcpIoLoop);
+            } else {
+                Log.d(TcpIoLoopOutputWriter.class.getName(),
+                        "WRITE TO DEVICE [" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +
+                                ", tcp loop = " + tcpIoLoop +
+                                ", DATA:\n" +
+                                ByteBufUtil.prettyHexDump(
+                                        Unpooled.wrappedBuffer(tcpData)));
+            }
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
             remoteToDeviceStream.flush();
         } catch (IOException e) {
