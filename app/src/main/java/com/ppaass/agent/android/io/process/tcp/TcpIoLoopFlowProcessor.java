@@ -135,32 +135,38 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void executeFlow(TcpIoLoop tcpIoLoop, IpPacket inputIpPacket) {
-        TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
-        TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
-        if (inputTcpHeader.isSyn()) {
-            doSyn(tcpIoLoop, inputTcpHeader);
-            return;
-        }
-        if (inputTcpHeader.isPsh()) {
-            byte[] inputData = inputTcpPacket.getData();
-            if (inputData != null && inputData.length == 0) {
-                inputData = null;
+        this.processorThreadPool.execute(new Runnable() {
+            @Override
+            public void run() {
+                TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
+                TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+                if (inputTcpHeader.isSyn()) {
+                    doSyn(tcpIoLoop, inputTcpHeader);
+                    return;
+                }
+                if (inputTcpHeader.isPsh()) {
+                    byte[] inputData = inputTcpPacket.getData();
+                    if (inputData != null && inputData.length == 0) {
+                        inputData = null;
+                    }
+                    doPsh(tcpIoLoop, inputTcpHeader, inputData);
+                    return;
+                }
+                if (inputTcpHeader.isAck()) {
+                    byte[] inputData = inputTcpPacket.getData();
+                    if (inputData != null && inputData.length == 0) {
+                        inputData = null;
+                    }
+                    doAck(tcpIoLoop, inputTcpHeader, inputData);
+                    return;
+                }
+                if (inputTcpHeader.isRst()) {
+                    doRst(tcpIoLoop, inputTcpHeader);
+                    return;
+                }
             }
-            doPsh(tcpIoLoop, inputTcpHeader, inputData);
-            return;
-        }
-        if (inputTcpHeader.isAck()) {
-            byte[] inputData = inputTcpPacket.getData();
-            if (inputData != null && inputData.length == 0) {
-                inputData = null;
-            }
-            doAck(tcpIoLoop, inputTcpHeader, inputData);
-            return;
-        }
-        if (inputTcpHeader.isRst()) {
-            doRst(tcpIoLoop, inputTcpHeader);
-            return;
-        }
+        });
+
     }
 
     private void doSyn(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader) {
@@ -199,8 +205,8 @@ public class TcpIoLoopFlowProcessor {
                     }
                     if (mssOption != null) {
                         ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
-                        //this.mss = mssOptionBuf.readUnsignedShort();
-                        tcpIoLoop.setMss(DEFAULT_MSS_IN_BYTE);
+                        int mss = mssOptionBuf.readUnsignedShort();
+                        tcpIoLoop.setMss(mss);
                     }
                     tcpIoLoop.setWindow(inputTcpHeader.getWindow());
                     tcpIoLoop.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
