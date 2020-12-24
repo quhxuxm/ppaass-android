@@ -52,7 +52,7 @@ public class TcpIoLoopOutputWriter {
             }
             byte[] tcpData = tcpPacket.getData();
             Log.d(TcpIoLoopOutputWriter.class.getName(),
-                    "WRITE TO APP[" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +
+                    "WRITE TO DEVICE [" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +
                             ", tcp loop = " + tcpIoLoop +
                             ", DATA:\n" +
                             ByteBufUtil.prettyHexDump(
