@@ -2,6 +2,7 @@ package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
 import com.ppaass.agent.android.io.protocol.ip.*;
+import com.ppaass.agent.android.io.protocol.tcp.TcpHeader;
 import com.ppaass.agent.android.io.protocol.tcp.TcpHeaderOption;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacketBuilder;
@@ -21,9 +22,27 @@ public class TcpIoLoopOutputWriter {
     public void writeIpPacket(IpPacket ipPacket, TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         try {
             TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
+            String packetType = "";
+            TcpHeader tcpHeader = tcpPacket.getHeader();
+            if (tcpHeader.isSyn()) {
+                packetType = "SYN";
+            } else {
+                if (tcpHeader.isFin()) {
+                    packetType = "FIN";
+                }
+            }
+            if (tcpHeader.isAck()) {
+                if (packetType.length() > 0) {
+                    packetType += " ACK";
+                } else {
+                    packetType = "ACK";
+                }
+            }
             byte[] tcpData = tcpPacket.getData();
             Log.d(TcpIoLoopOutputWriter.class.getName(),
-                    "WRITE TO APP, ip packet = " + ipPacket + ", tcp loop = " + tcpIoLoop + ", DATA:\n" +
+                    "WRITE TO APP[" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +
+                            ", tcp loop = " + tcpIoLoop +
+                            ", DATA:\n" +
                             ByteBufUtil.prettyHexDump(
                                     Unpooled.wrappedBuffer(tcpData)));
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));

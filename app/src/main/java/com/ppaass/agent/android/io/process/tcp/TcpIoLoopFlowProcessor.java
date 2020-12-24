@@ -125,7 +125,7 @@ public class TcpIoLoopFlowProcessor {
             @Override
             protected void initChannel(SocketChannel remoteChannel) {
                 ChannelPipeline remoteChannelPipeline = remoteChannel.pipeline();
-                remoteChannelPipeline.addLast(new TcpIoLoopDeviceToRemoteHandler());
+                remoteChannelPipeline.addLast(new TcpIoLoopRemoteToDeviceHandler());
             }
         });
         remoteBootstrap.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM, this.remoteToDeviceStream);
@@ -203,8 +203,6 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void doAck(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader, byte[] data) {
-        Log.d(TcpIoLoopFlowProcessor.class.getName(),
-                "RECEIVE [ACK], get waiting device seq, tcp header = "+inputTcpHeader+", tcp loop = " + tcpIoLoop);
         if (TcpIoLoopStatus.SYN_RECEIVED == tcpIoLoop.getStatus()) {
             //Should receive the ack of syn_ack.
             tcpIoLoop.setStatus(TcpIoLoopStatus.ESTABLISHED);
@@ -220,7 +218,8 @@ public class TcpIoLoopFlowProcessor {
                 if (data == null) {
                     tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
                     Log.d(TcpIoLoop.class.getName(),
-                            "RECEIVE [PSH ACK WITHOUT DATA], write ACK to device, tcp header =" + inputTcpHeader +
+                            "RECEIVE [PSH ACK WITHOUT DATA(size=0)], write data to remote, tcp header =" +
+                                    inputTcpHeader +
                                     ", tcp loop = " + tcpIoLoop);
                     TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
                     return;
@@ -235,7 +234,7 @@ public class TcpIoLoopFlowProcessor {
                 tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
                 return;
             }
-            if(inputTcpHeader.isFin()){
+            if (inputTcpHeader.isFin()) {
                 if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoop.getStatus()) {
                     tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
                     tcpIoLoop.setStatus(TcpIoLoopStatus.TIME_WAITE);
@@ -252,7 +251,7 @@ public class TcpIoLoopFlowProcessor {
             if (data == null) {
                 tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
                 Log.d(TcpIoLoop.class.getName(),
-                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED)], write ACK to device, tcp header =" +
+                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], write data to remote, tcp header =" +
                                 inputTcpHeader +
                                 ", tcp loop = " + tcpIoLoop);
                 TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);

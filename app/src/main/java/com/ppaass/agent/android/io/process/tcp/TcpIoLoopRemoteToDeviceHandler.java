@@ -13,8 +13,8 @@ import io.netty.util.ReferenceCountUtil;
 import java.io.OutputStream;
 
 @ChannelHandler.Sharable
-public class TcpIoLoopDeviceToRemoteHandler extends ChannelDuplexHandler {
-    public TcpIoLoopDeviceToRemoteHandler() {
+public class TcpIoLoopRemoteToDeviceHandler extends ChannelDuplexHandler {
+    public TcpIoLoopRemoteToDeviceHandler() {
     }
 //    @Override
 //    public void close(ChannelHandlerContext remoteChannelContext, ChannelPromise promise) throws Exception {
@@ -35,7 +35,7 @@ public class TcpIoLoopDeviceToRemoteHandler extends ChannelDuplexHandler {
         final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
         ByteBuf remoteMessageByteBuf = (ByteBuf) remoteMessage;
         int currentRemoteMessagePacketLength = remoteMessageByteBuf.readableBytes();
-        Log.v(TcpIoLoopDeviceToRemoteHandler.class.getName(),
+        Log.v(TcpIoLoopRemoteToDeviceHandler.class.getName(),
                 "Current remote message packet size = " + currentRemoteMessagePacketLength + ", buffer capacity = " +
                         remoteMessageByteBuf.capacity() + ", tcp loop = " +
                         tcpIoLoop);
@@ -47,12 +47,12 @@ public class TcpIoLoopDeviceToRemoteHandler extends ChannelDuplexHandler {
             byte[] ackData = ByteBufUtil.getBytes(remoteMessageByteBuf.readBytes(length));
             TcpIoLoopOutputWriter.INSTANCE.writePshAck(tcpIoLoop, ackData, remoteToDeviceStream);
         }
-        if (currentRemoteMessagePacketLength < remoteMessageByteBuf.capacity()) {
-            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
-            Log.d(TcpIoLoopDeviceToRemoteHandler.class.getName(),
-                    "Close tcp loop as remote channel no more data, tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeFinAck(tcpIoLoop, remoteToDeviceStream);
-        }
+//        if (currentRemoteMessagePacketLength < remoteMessageByteBuf.capacity()) {
+//            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
+//            Log.d(TcpIoLoopDeviceToRemoteHandler.class.getName(),
+//                    "Close tcp loop as remote channel no more data, tcp loop = " + tcpIoLoop);
+//            TcpIoLoopOutputWriter.INSTANCE.writeFinAck(tcpIoLoop, remoteToDeviceStream);
+//        }
         ReferenceCountUtil.release(remoteMessage);
     }
 
@@ -60,7 +60,7 @@ public class TcpIoLoopDeviceToRemoteHandler extends ChannelDuplexHandler {
     public void exceptionCaught(ChannelHandlerContext remoteChannelContext, Throwable cause) throws Exception {
         Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
-        Log.e(TcpIoLoopDeviceToRemoteHandler.class.getName(), "Exception happen on tcp loop, tcp loop =  " + tcpIoLoop,
+        Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(), "Exception happen on tcp loop, tcp loop =  " + tcpIoLoop,
                 cause);
     }
 }
