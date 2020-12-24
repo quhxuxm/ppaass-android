@@ -20,6 +20,8 @@ import org.jetbrains.annotations.Nullable;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.Timer;
+import java.util.TimerTask;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
@@ -139,6 +141,14 @@ public class TcpIoLoopFlowProcessor {
             doSyn(tcpIoLoop, inputTcpHeader);
             return;
         }
+        if (inputTcpHeader.isPsh()) {
+            byte[] inputData = inputTcpPacket.getData();
+            if (inputData != null && inputData.length == 0) {
+                inputData = null;
+            }
+            doPsh(tcpIoLoop, inputTcpHeader, inputData);
+            return;
+        }
         if (inputTcpHeader.isAck()) {
             byte[] inputData = inputTcpPacket.getData();
             if (inputData != null && inputData.length == 0) {
@@ -202,6 +212,30 @@ public class TcpIoLoopFlowProcessor {
                 });
     }
 
+    private void doPsh(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader, byte[] data) {
+        //Psh ack
+        tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+        if (data == null) {
+            tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE [PSH ACK WITHOUT DATA(size=0)], No data to remote ack to device, tcp header =" +
+                            inputTcpHeader +
+                            ", tcp loop = " + tcpIoLoop);
+//                    TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+            tcpIoLoop.getAckSemaphore().release();
+            return;
+        }
+        tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
+        ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
+        Log.d(TcpIoLoop.class.getName(),
+                "RECEIVE [PSH ACK WITH DATA(size=" + data.length +
+                        ")], write data to remote, tcp header =" +
+                        inputTcpHeader +
+                        ", tcp loop = " + tcpIoLoop + ", DATA: \n" +
+                        ByteBufUtil.prettyHexDump(pshDataByteBuf));
+        tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
+    }
+
     private void doAck(TcpIoLoop tcpIoLoop, TcpHeader inputTcpHeader, byte[] data) {
         if (TcpIoLoopStatus.SYN_RECEIVED == tcpIoLoop.getStatus()) {
             //Should receive the ack of syn_ack.
@@ -212,28 +246,6 @@ public class TcpIoLoopFlowProcessor {
             return;
         }
         if (TcpIoLoopStatus.ESTABLISHED == tcpIoLoop.getStatus()) {
-            if (inputTcpHeader.isPsh()) {
-                //Psh ack
-                tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
-                if (data == null) {
-                    tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
-                    Log.d(TcpIoLoop.class.getName(),
-                            "RECEIVE [PSH ACK WITHOUT DATA(size=0)], No data to remote ack to device, tcp header =" +
-                                    inputTcpHeader +
-                                    ", tcp loop = " + tcpIoLoop);
-//                    TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
-                    tcpIoLoop.getAckSemaphore().release();
-                    return;
-                }
-                tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
-                ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
-                Log.d(TcpIoLoop.class.getName(),
-                        "RECEIVE [PSH ACK WITH DATA(size=" + data.length + ")], write data to remote, tcp header =" +
-                                inputTcpHeader +
-                                ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(pshDataByteBuf));
-                tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
-                return;
-            }
             tcpIoLoop.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
             if (data == null) {
                 tcpIoLoop.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
@@ -278,8 +290,14 @@ public class TcpIoLoopFlowProcessor {
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE [ACK(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
                             + inputTcpHeader + " tcp loop = " + tcpIoLoop);
-            TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
-            tcpIoLoop.destroy();
+            Timer _2mlTimer = new Timer();
+            _2mlTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, remoteToDeviceStream);
+                    tcpIoLoop.destroy();
+                }
+            }, 1000 * 120);
             return;
         }
         if (TcpIoLoopStatus.LAST_ACK == tcpIoLoop.getStatus()) {
