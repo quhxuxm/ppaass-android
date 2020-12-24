@@ -230,7 +230,7 @@ public class TcpIoLoopFlowProcessor {
                         "RECEIVE [PSH ACK WITH DATA(size=" + data.length + ")], write data to remote, tcp header =" +
                                 inputTcpHeader +
                                 ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(pshDataByteBuf));
-                TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+//                TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
                 tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
                 return;
             }
@@ -264,7 +264,7 @@ public class TcpIoLoopFlowProcessor {
                             ")], write data to remote, tcp header =" +
                             inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(pshDataByteBuf));
-            TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
+//            TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoop, null, this.remoteToDeviceStream);
             tcpIoLoop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
             return;
         }

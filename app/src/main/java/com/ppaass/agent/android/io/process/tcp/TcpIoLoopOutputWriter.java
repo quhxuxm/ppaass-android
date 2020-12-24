@@ -19,20 +19,32 @@ public class TcpIoLoopOutputWriter {
     private TcpIoLoopOutputWriter() {
     }
 
+    private String buildBasePacketType(TcpHeader tcpHeader) {
+        if (tcpHeader.isSyn()) {
+            return "SYN";
+        }
+        if (tcpHeader.isFin()) {
+            return "FIN";
+        }
+        if (tcpHeader.isRst()) {
+            return "RST";
+        }
+        if (tcpHeader.isPsh()) {
+            return "PSH";
+        }
+        if (tcpHeader.isUrg()) {
+            return "URG";
+        }
+        return null;
+    }
+
     public void writeIpPacket(IpPacket ipPacket, TcpIoLoop tcpIoLoop, OutputStream remoteToDeviceStream) {
         try {
             TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
-            String packetType = "";
             TcpHeader tcpHeader = tcpPacket.getHeader();
-            if (tcpHeader.isSyn()) {
-                packetType = "SYN";
-            } else {
-                if (tcpHeader.isFin()) {
-                    packetType = "FIN";
-                }
-            }
+            String packetType = this.buildBasePacketType(tcpHeader);
             if (tcpHeader.isAck()) {
-                if (packetType.length() > 0) {
+                if (packetType != null) {
                     packetType += " ACK";
                 } else {
                     packetType = "ACK";
