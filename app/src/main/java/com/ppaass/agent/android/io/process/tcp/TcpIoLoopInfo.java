@@ -3,7 +3,6 @@ package com.ppaass.agent.android.io.process.tcp;
 import io.netty.channel.Channel;
 
 import java.net.InetAddress;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 
 public class TcpIoLoopInfo {
@@ -19,8 +18,9 @@ public class TcpIoLoopInfo {
     private int window;
     private Channel remoteChannel;
     private final Semaphore ackSemaphore;
+    private final int baseLoopSequence;
 
-    public TcpIoLoopInfo(String key, InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort,
+    public TcpIoLoopInfo(String key, int baseLoopSequence, InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort,
                          int destinationPort) {
         this.sourceAddress = sourceAddress;
         this.destinationAddress = destinationAddress;
@@ -31,6 +31,11 @@ public class TcpIoLoopInfo {
         this.mss = -1;
         this.window = -1;
         this.ackSemaphore = new Semaphore(1);
+        this.baseLoopSequence=baseLoopSequence;
+    }
+
+    public int getBaseLoopSequence() {
+        return baseLoopSequence;
     }
 
     public String getKey() {
@@ -109,6 +114,7 @@ public class TcpIoLoopInfo {
     public String toString() {
         return "TcpIoLoop{" +
                 "key='" + key + '\'' +
+                ", baseLoopSequence="+baseLoopSequence+
                 ", sourceAddress=" + sourceAddress +
                 ", destinationAddress=" + destinationAddress +
                 ", sourcePort=" + sourcePort +

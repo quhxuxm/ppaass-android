@@ -21,10 +21,6 @@ import java.util.concurrent.LinkedBlockingDeque;
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_LOOP;
 
 public class TcpIoLoop implements Runnable {
-    private static final int DEFAULT_WINDOW_SIZE_IN_BYTE = 65535;
-    private static final int DEFAULT_MSS_IN_BYTE = 256;
-    private static final int DEFAULT_REMOTE_DATA_FRAME_LENGTH_IN_BYTE = 4096;
-    private static final int BASE_SEQUENCE = (int) (Math.random() * 100000);
     private final TcpIoLoopInfo loopInfo;
     private final BlockingDeque<IpPacket> deviceToRemoteIpPacketQueue;
     private final Bootstrap remoteBootstrap;
@@ -75,7 +71,7 @@ public class TcpIoLoop implements Runnable {
         this.loopInfo.setCurrentRemoteToDeviceAck(-1);
         this.loopInfo.setCurrentRemoteToDeviceSeq(-1);
         this.loopInfo.getAckSemaphore().release();
-        if(this.loopInfo.getRemoteChannel().isOpen()) {
+        if (this.loopInfo.getRemoteChannel().isOpen()) {
             this.loopInfo.getRemoteChannel().close();
         }
         this.tcpIoLoopsContainer.remove(this.loopInfo.getKey());
@@ -157,7 +153,7 @@ public class TcpIoLoop implements Runnable {
                     }
                     tcpIoLoopInfo.setWindow(inputTcpHeader.getWindow());
                     tcpIoLoopInfo.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
-                    tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(BASE_SEQUENCE);
+                    tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(tcpIoLoopInfo.getBaseLoopSequence());
                     tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
                     Log.d(TcpIoLoop.class.getName(),
                             "RECEIVE [SYN], initializing connection success, switch tcp loop to SYN_RECIVED, tcp header = " +

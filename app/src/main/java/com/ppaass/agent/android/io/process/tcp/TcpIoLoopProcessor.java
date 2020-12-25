@@ -26,6 +26,7 @@ import java.util.concurrent.Executors;
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_IO_LOOP_KEY_FORMAT;
 
 public class TcpIoLoopProcessor {
+    private static final int BASE_TCP_LOOP_SEQUENCE = (int) (Math.random() * 100000);
     private final VpnService vpnService;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
@@ -33,6 +34,7 @@ public class TcpIoLoopProcessor {
     private final ConcurrentMap<String, TcpIoLoop> tcpIoLoops;
     private final OutputStream remoteToDeviceStream;
     private final ExecutorService loopExecutor;
+    private int createTcpLoopCounter;
 
     public TcpIoLoopProcessor(VpnService vpnService, byte[] agentPrivateKeyBytes, byte[] proxyPublicKeyBytes,
                               OutputStream remoteToDeviceStream) {
@@ -43,6 +45,7 @@ public class TcpIoLoopProcessor {
         this.remoteBootstrap = this.createRemoteBootstrap();
         this.tcpIoLoops = new ConcurrentHashMap<>();
         this.loopExecutor = Executors.newFixedThreadPool(20);
+        this.createTcpLoopCounter = 0;
     }
 
     public void process(IpPacket ipPacket) {
@@ -87,8 +90,14 @@ public class TcpIoLoopProcessor {
         );
         return this.tcpIoLoops.computeIfAbsent(tcpIoLoopKey,
                 (key) -> {
-                    TcpIoLoopInfo loopInfo = new TcpIoLoopInfo(key, sourceAddress, destinationAddress, sourcePort,
-                            destinationPort);
+                    this.createTcpLoopCounter++;
+                    TcpIoLoopInfo loopInfo =
+                            new TcpIoLoopInfo(key,
+                                    BASE_TCP_LOOP_SEQUENCE + this.createTcpLoopCounter,
+                                    sourceAddress,
+                                    destinationAddress,
+                                    sourcePort,
+                                    destinationPort);
                     loopInfo.setStatus(TcpIoLoopStatus.LISTEN);
                     TcpIoLoop loop = new TcpIoLoop(loopInfo, remoteBootstrap, remoteToDeviceStream, this.tcpIoLoops);
                     this.loopExecutor.execute(loop);
