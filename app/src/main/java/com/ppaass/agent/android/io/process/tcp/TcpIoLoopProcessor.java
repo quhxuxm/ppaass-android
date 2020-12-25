@@ -93,7 +93,8 @@ public class TcpIoLoopProcessor {
                     TcpIoLoop loop = new TcpIoLoop(loopInfo, remoteBootstrap, remoteToDeviceStream, this.tcpIoLoops);
                     this.loopExecutor.execute(loop);
                     Log.d(TcpIoLoopProcessor.class.getName(),
-                            "Create tcp loop, ip packet = " + ipPacket + ", tcp loop = " + loopInfo);
+                            "Create tcp loop, ip packet = " + ipPacket + ", tcp loop = " + loopInfo +
+                                    ", loop container size = " + tcpIoLoops.size());
                     return loop;
                 });
     }
