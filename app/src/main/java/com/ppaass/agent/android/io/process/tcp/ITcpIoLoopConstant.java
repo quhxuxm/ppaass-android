@@ -5,7 +5,7 @@ import io.netty.util.AttributeKey;
 import java.io.OutputStream;
 
 public interface ITcpIoLoopConstant {
-    AttributeKey<TcpIoLoop> TCP_LOOP =
+    AttributeKey<TcpIoLoopInfo> TCP_LOOP =
             AttributeKey.valueOf("TCP_LOOP");
     AttributeKey<OutputStream> REMOTE_TO_DEVICE_STREAM =
             AttributeKey.valueOf("REMOTE_TO_DEVICE_STREAM");

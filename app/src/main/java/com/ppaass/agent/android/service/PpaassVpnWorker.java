@@ -2,7 +2,7 @@ package com.ppaass.agent.android.service;
 
 import android.net.VpnService;
 import android.util.Log;
-import com.ppaass.agent.android.io.process.tcp.TcpIoLoopFlowProcessor;
+import com.ppaass.agent.android.io.process.tcp.TcpIoLoopProcessor;
 import com.ppaass.agent.android.io.protocol.ip.*;
 
 import java.io.IOException;
@@ -19,7 +19,7 @@ public class PpaassVpnWorker implements Runnable {
     private final VpnService vpnService;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
-    private final TcpIoLoopFlowProcessor tcpIoLoopFlowProcessor;
+    private final TcpIoLoopProcessor tcpIoLoopProcessor;
     private boolean alive;
 
     public PpaassVpnWorker(InputStream deviceToRemoteStream, OutputStream remoteToDeviceStream,
@@ -31,7 +31,7 @@ public class PpaassVpnWorker implements Runnable {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.alive = false;
         this.executor = Executors.newSingleThreadExecutor();
-        this.tcpIoLoopFlowProcessor = new TcpIoLoopFlowProcessor(this.vpnService, agentPrivateKeyBytes, proxyPublicKeyBytes,
+        this.tcpIoLoopProcessor = new TcpIoLoopProcessor(this.vpnService, agentPrivateKeyBytes, proxyPublicKeyBytes,
                 remoteToDeviceStream);
     }
 
@@ -67,7 +67,7 @@ public class PpaassVpnWorker implements Runnable {
                 IpV4Header ipV4Header = (IpV4Header) ipPacket.getHeader();
                 IpDataProtocol protocol = ipV4Header.getProtocol();
                 if (IpDataProtocol.TCP == protocol) {
-                    this.tcpIoLoopFlowProcessor.process(ipPacket);
+                    this.tcpIoLoopProcessor.process(ipPacket);
                     Thread.sleep(100);
                     continue;
                 }
