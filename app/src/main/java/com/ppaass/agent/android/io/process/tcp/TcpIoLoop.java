@@ -348,8 +348,6 @@ public class TcpIoLoop implements Runnable {
                 Log.d(TcpIoLoop.class.getName(),
                         "RECEIVE [FIN ACK(status=FIN_WAITE1)], close tcp loop, tcp header ="
                                 + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
-                long ackIn2MslTimer = inputTcpHeader.getSequenceNumber() + 1;
-                long seqIn2MslTimer = inputTcpHeader.getAcknowledgementNumber();
                 tcpIoLoopInfo.setStatus(TcpIoLoopStatus.TIME_WAITE);
                 Timer twoMslTimer = new Timer();
                 twoMslTimer.schedule(new TimerTask() {
