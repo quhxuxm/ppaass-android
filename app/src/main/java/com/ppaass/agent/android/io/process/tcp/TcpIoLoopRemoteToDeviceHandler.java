@@ -57,10 +57,10 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelDuplexHandler {
         }
         if (currentRemoteMessagePacketLength < remoteMessageByteBuf.capacity()) {
             tcpIoLoopInfo.getAckSemaphore().acquire();
+            TcpIoLoopOutputWriter.INSTANCE.writeFinAck(tcpIoLoopInfo, remoteToDeviceStream);
             tcpIoLoopInfo.setStatus(TcpIoLoopStatus.FIN_WAITE1);
             Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
                     "Close tcp loop as remote channel no more data, tcp loop = " + tcpIoLoopInfo);
-            TcpIoLoopOutputWriter.INSTANCE.writeFinAck(tcpIoLoopInfo, remoteToDeviceStream);
         }
         ReferenceCountUtil.release(remoteMessage);
     }

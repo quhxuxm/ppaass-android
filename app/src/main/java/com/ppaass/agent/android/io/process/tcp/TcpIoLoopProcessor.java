@@ -57,8 +57,13 @@ public class TcpIoLoopProcessor {
         }
         Log.v(TcpIoLoopProcessor.class.getName(),
                 "Put ip packet to tcp loop, tcp loop = " + tcpIoLoop.getLoopInfo() + ", current ip packet = " +
-                        ipPacket + ", queued packets = " + tcpIoLoop.getDeviceToRemoteIpPacketQueue());
-        tcpIoLoop.offerIpPacket(ipPacket);
+                        ipPacket + ", queue size = " + tcpIoLoop.getDeviceToRemoteIpPacketQueue().size());
+        if (!tcpIoLoop.offerIpPacket(ipPacket)) {
+            Log.e(TcpIoLoopProcessor.class.getName(),
+                    "Put ip packet to tcp loop timeout, ignore the packet, tcp loop = " + tcpIoLoop.getLoopInfo() +
+                            ", current ip packet = " +
+                            ipPacket + ", queue size = " + tcpIoLoop.getDeviceToRemoteIpPacketQueue().size());
+        }
     }
 
     @Nullable

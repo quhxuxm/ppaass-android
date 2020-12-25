@@ -17,10 +17,12 @@ import java.util.TimerTask;
 import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_LOOP;
 
 public class TcpIoLoop implements Runnable {
+    private static final int QUEUE_TIMEOUT = 20000;
     private final TcpIoLoopInfo loopInfo;
     private final BlockingDeque<IpPacket> deviceToRemoteIpPacketQueue;
     private final Bootstrap remoteBootstrap;
@@ -34,23 +36,24 @@ public class TcpIoLoop implements Runnable {
         this.remoteBootstrap = remoteBootstrap;
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.tcpIoLoopsContainer = tcpIoLoopsContainer;
-        deviceToRemoteIpPacketQueue = new LinkedBlockingDeque<>();
+        deviceToRemoteIpPacketQueue = new LinkedBlockingDeque<>(1024);
         this.alive = true;
     }
 
-    public void offerIpPacket(IpPacket ipPacket) {
+    public synchronized boolean offerIpPacket(IpPacket ipPacket) {
         try {
-            this.deviceToRemoteIpPacketQueue.put(ipPacket);
+            return this.deviceToRemoteIpPacketQueue.offer(ipPacket, QUEUE_TIMEOUT, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Log.e(TcpIoLoop.class.getName(),
                     "Fail to put ip packet into the device to remote queue because of exception, tcp loop = " +
                             this.loopInfo, e);
+            return false;
         }
     }
 
-    public IpPacket pollIpPacket() {
+    public synchronized IpPacket pollIpPacket() {
         try {
-            return this.deviceToRemoteIpPacketQueue.take();
+            return this.deviceToRemoteIpPacketQueue.poll(QUEUE_TIMEOUT, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Log.e(TcpIoLoop.class.getName(),
                     "Fail to take ip packet from the device to remote queue because of exception, tcp loop = " +
@@ -67,7 +70,7 @@ public class TcpIoLoop implements Runnable {
         return loopInfo;
     }
 
-    public void stop() {
+    public synchronized void stop() {
         Log.d(TcpIoLoop.class.getName(), "Stop tcp loop, tcp loop = " + this.loopInfo);
         this.alive = false;
         this.deviceToRemoteIpPacketQueue.clear();
@@ -98,6 +101,19 @@ public class TcpIoLoop implements Runnable {
                                 ", tcp loop = " + this.loopInfo);
                 continue;
             }
+            if (TcpIoLoopStatus.CLOSED == this.loopInfo.getStatus()) {
+                Log.d(TcpIoLoop.class.getName(),
+                        "Ignore the incoming ip packet as tcp loop is closed already, tcp header = " + inputTcpHeader +
+                                ", tcp loop = " + this.loopInfo);
+                continue;
+            }
+            if (TcpIoLoopStatus.TIME_WAITE == this.loopInfo.getStatus()) {
+                Log.d(TcpIoLoop.class.getName(),
+                        "Ignore the incoming ip packet as tcp loop is time waite already, tcp header = " +
+                                inputTcpHeader +
+                                ", tcp loop = " + this.loopInfo);
+                continue;
+            }
             if (inputTcpHeader.isSyn()) {
                 doSyn(this.loopInfo, inputTcpHeader);
                 continue;
@@ -109,6 +125,10 @@ public class TcpIoLoop implements Runnable {
                 }
                 doPsh(this.loopInfo, inputTcpHeader, inputData);
                 continue;
+            }
+            if ((inputTcpHeader.isFin())) {
+                doFin(this.loopInfo, inputTcpHeader);
+                return;
             }
             if (inputTcpHeader.isAck()) {
                 byte[] inputData = inputTcpPacket.getData();
@@ -269,29 +289,8 @@ public class TcpIoLoop implements Runnable {
             tcpIoLoopInfo.setStatus(TcpIoLoopStatus.FIN_WAITE2);
             return;
         }
-        if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoopInfo.getStatus()) {
-            long ackIn2MslTimer = inputTcpHeader.getSequenceNumber() + 1;
-            long seqIn2MslTimer = inputTcpHeader.getAcknowledgementNumber();
-            tcpIoLoopInfo.setStatus(TcpIoLoopStatus.TIME_WAITE);
-            Log.d(TcpIoLoop.class.getName(),
-                    "RECEIVE [ACK(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
-                            + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
-            Timer twoMslTimer = new Timer();
-            twoMslTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    tcpIoLoopInfo.setCurrentRemoteToDeviceAck(ackIn2MslTimer);
-                    tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(seqIn2MslTimer);
-                    Log.d(TcpIoLoop.class.getName(),
-                            "SEND [ACK(status=TIME_WAITE)], destroy connection in 2MSL, send ack, tcp header ="
-                                    + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
-                    TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoopInfo, null, remoteToDeviceStream);
-                    TcpIoLoop.this.stop();
-                }
-            }, 1000 * 120);
-            return;
-        }
         if (TcpIoLoopStatus.LAST_ACK == tcpIoLoopInfo.getStatus()) {
+            tcpIoLoopInfo.getAckSemaphore().release();
             tcpIoLoopInfo.setStatus(TcpIoLoopStatus.CLOSED);
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE [ACK(status=LAST_ACK)], close tcp loop, tcp header ="
@@ -300,7 +299,7 @@ public class TcpIoLoop implements Runnable {
             return;
         }
         Log.e(TcpIoLoop.class.getName(),
-                "Tcp loop in illegal state, send RST back to device, tcp header ="
+                "RECEIVE [ACK], Tcp loop in illegal state, send RST back to device, tcp header ="
                         + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
         tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
         tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
@@ -318,18 +317,84 @@ public class TcpIoLoop implements Runnable {
     }
 
     private void doFin(TcpIoLoopInfo tcpIoLoopInfo, TcpHeader inputTcpHeader) {
-        tcpIoLoopInfo.setStatus(TcpIoLoopStatus.CLOSE_WAIT);
-        tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
-        Log.d(TcpIoLoop.class.getName(),
-                "RECEIVE [FIN], switch tcp loop status to CLOSE_WAIT, tcp header =" +
-                        inputTcpHeader +
-                        ", tcp loop = " + tcpIoLoopInfo);
-        TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoopInfo, null, this.remoteToDeviceStream);
-        tcpIoLoopInfo.setStatus(TcpIoLoopStatus.LAST_ACK);
-        Log.d(TcpIoLoop.class.getName(),
-                "RECEIVE [FIN], switch tcp loop status to LAST_ACK, tcp header =" +
-                        inputTcpHeader +
-                        ", tcp loop = " + tcpIoLoopInfo);
-        TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoopInfo, this.remoteToDeviceStream);
+        if (TcpIoLoopStatus.ESTABLISHED == tcpIoLoopInfo.getStatus()) {
+            tcpIoLoopInfo.setStatus(TcpIoLoopStatus.CLOSE_WAIT);
+            tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + 1);
+            tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE [FIN(status=ESTABLISHED, STEP1)], switch tcp loop status to CLOSE_WAIT, tcp header =" +
+                            inputTcpHeader +
+                            ", tcp loop = " + tcpIoLoopInfo);
+            TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoopInfo, null, this.remoteToDeviceStream);
+            tcpIoLoopInfo.setStatus(TcpIoLoopStatus.LAST_ACK);
+            try {
+                tcpIoLoopInfo.getAckSemaphore().acquire();
+            } catch (InterruptedException e) {
+                Log.e(TcpIoLoop.class.getName(),
+                        "RECEIVE [FIN(status=ESTABLISHED, STEP1->STEP2 ERROR)], exception when switch status from CLOSE_WAIT to LAST_ACK, tcp header =" +
+                                inputTcpHeader +
+                                ", tcp loop = " + tcpIoLoopInfo, e);
+            }
+            TcpIoLoopOutputWriter.INSTANCE.writeFin(tcpIoLoopInfo, this.remoteToDeviceStream);
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE [FIN(status=ESTABLISHED, STEP2)], switch tcp loop status to LAST_ACK, tcp header =" +
+                            inputTcpHeader +
+                            ", tcp loop = " + tcpIoLoopInfo);
+            return;
+        }
+        if (TcpIoLoopStatus.FIN_WAITE1 == tcpIoLoopInfo.getStatus()) {
+            tcpIoLoopInfo.getAckSemaphore().release();
+            if (inputTcpHeader.isAck()) {
+                Log.d(TcpIoLoop.class.getName(),
+                        "RECEIVE [FIN ACK(status=FIN_WAITE1)], close tcp loop, tcp header ="
+                                + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
+                long ackIn2MslTimer = inputTcpHeader.getSequenceNumber() + 1;
+                long seqIn2MslTimer = inputTcpHeader.getAcknowledgementNumber();
+                tcpIoLoopInfo.setStatus(TcpIoLoopStatus.TIME_WAITE);
+                Timer twoMslTimer = new Timer();
+                twoMslTimer.schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        TcpIoLoop.this.stop();
+                    }
+                }, 1000 * 120);
+                return;
+            } else {
+                Log.d(TcpIoLoop.class.getName(),
+                        "RECEIVE [FIN(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, send ack, tcp header ="
+                                + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
+            }
+            tcpIoLoopInfo.setStatus(TcpIoLoopStatus.FIN_WAITE2);
+            return;
+        }
+        if (TcpIoLoopStatus.FIN_WAITE2 == tcpIoLoopInfo.getStatus()) {
+            Log.d(TcpIoLoop.class.getName(),
+                    "RECEIVE [FIN(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
+                            + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
+            long ackIn2MslTimer = inputTcpHeader.getSequenceNumber() + 1;
+            long seqIn2MslTimer = inputTcpHeader.getAcknowledgementNumber();
+            tcpIoLoopInfo.setStatus(TcpIoLoopStatus.TIME_WAITE);
+            Timer twoMslTimer = new Timer();
+            twoMslTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    tcpIoLoopInfo.setCurrentRemoteToDeviceAck(ackIn2MslTimer);
+                    tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(seqIn2MslTimer);
+                    Log.d(TcpIoLoop.class.getName(),
+                            "SEND [ACK(status=TIME_WAITE)], destroy connection in 2MSL, send ack, tcp header ="
+                                    + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
+                    TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoopInfo, null, remoteToDeviceStream);
+                    TcpIoLoop.this.stop();
+                }
+            }, 1000 * 120);
+            return;
+        }
+        Log.e(TcpIoLoop.class.getName(),
+                "RECEIVE [FIN] Tcp loop in illegal state, send RST back to device, tcp header ="
+                        + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
+        tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
+        tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+        tcpIoLoopInfo.setStatus(TcpIoLoopStatus.RESET);
+        TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoopInfo, remoteToDeviceStream);
     }
 }
