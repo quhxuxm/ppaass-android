@@ -115,6 +115,7 @@ public class TcpIoLoop implements Runnable {
                                 ", tcp loop = " + this.loopInfo);
                 continue;
             }
+            this.loopInfo.setLatestMessageTime(System.nanoTime());
             if (inputTcpHeader.isSyn()) {
                 doSyn(this.loopInfo, inputTcpHeader);
                 continue;
@@ -288,6 +289,19 @@ public class TcpIoLoop implements Runnable {
                     "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
                             + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
             tcpIoLoopInfo.setStatus(TcpIoLoopStatus.FIN_WAITE2);
+            long latestMessageTime = tcpIoLoopInfo.getLatestMessageTime();
+            Timer twoMslTimer = new Timer();
+            twoMslTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    if (latestMessageTime == tcpIoLoopInfo.getLatestMessageTime()) {
+                        Log.d(TcpIoLoop.class.getName(),
+                                "2MLS TIMER [ACK(status=FIN_WAITE1)], stop tcp loop as no message come, tcp header ="
+                                        + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
+                        TcpIoLoop.this.stop();
+                    }
+                }
+            }, DEFAULT_2MSL_TIME);
             return;
         }
         if (TcpIoLoopStatus.LAST_ACK == tcpIoLoopInfo.getStatus()) {
@@ -354,6 +368,9 @@ public class TcpIoLoop implements Runnable {
                 twoMslTimer.schedule(new TimerTask() {
                     @Override
                     public void run() {
+                        Log.d(TcpIoLoop.class.getName(),
+                                "2MLS TIMER [FIN ACK(status=FIN_WAITE1)], stop tcp loop, tcp header ="
+                                        + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
                         TcpIoLoop.this.stop();
                     }
                 }, DEFAULT_2MSL_TIME);
@@ -380,7 +397,7 @@ public class TcpIoLoop implements Runnable {
                     tcpIoLoopInfo.setCurrentRemoteToDeviceAck(ackIn2MslTimer);
                     tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(seqIn2MslTimer);
                     Log.d(TcpIoLoop.class.getName(),
-                            "SEND [ACK(status=TIME_WAITE)], destroy connection in 2MSL, send ack, tcp header ="
+                            "2MLS TIMER [ACK(status=TIME_WAITE)], send ack and stop tcp loop, send ack, tcp header ="
                                     + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
                     TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoopInfo, null, remoteToDeviceStream);
                     TcpIoLoop.this.stop();

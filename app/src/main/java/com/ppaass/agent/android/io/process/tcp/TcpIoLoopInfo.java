@@ -19,6 +19,7 @@ public class TcpIoLoopInfo {
     private Channel remoteChannel;
     private final Semaphore ackSemaphore;
     private final int baseLoopSequence;
+    private long latestMessageTime;
 
     public TcpIoLoopInfo(String key, int baseLoopSequence, InetAddress sourceAddress, InetAddress destinationAddress, int sourcePort,
                          int destinationPort) {
@@ -110,6 +111,14 @@ public class TcpIoLoopInfo {
         return ackSemaphore;
     }
 
+    public void setLatestMessageTime(long latestMessageTime) {
+        this.latestMessageTime = latestMessageTime;
+    }
+
+    public long getLatestMessageTime() {
+        return latestMessageTime;
+    }
+
     @Override
     public String toString() {
         return "TcpIoLoop{" +
@@ -121,6 +130,7 @@ public class TcpIoLoopInfo {
                 ", destinationPort=" + destinationPort +
                 ", status=" + status +
                 ", mss=" + mss +
+                ", latestMessageTime= "+latestMessageTime+
                 ", currentRemoteToDeviceSeq=" + currentRemoteToDeviceSeq +
                 ", currentRemoteToDeviceAck=" + currentRemoteToDeviceAck +
                 ", remoteChannel =" + (remoteChannel == null ? "" : remoteChannel.id().asShortText()) +
