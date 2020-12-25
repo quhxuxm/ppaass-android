@@ -236,19 +236,7 @@ class TcpIoLoopDeviceToRemoteTask implements Runnable {
                     "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
                             + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
             tcpIoLoopInfo.setStatus(TcpIoLoopStatus.FIN_WAITE2);
-            long latestMessageTime = tcpIoLoopInfo.getLatestMessageTime();
-            Timer twoMslTimer = new Timer();
-            twoMslTimer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    if (latestMessageTime == tcpIoLoopInfo.getLatestMessageTime()) {
-                        Log.d(TcpIoLoopDeviceToRemoteTask.class.getName(),
-                                "2MSL TIMER [ACK(status=FIN_WAITE1)], stop tcp loop as no message come, tcp header ="
-                                        + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
-                        TcpIoLoopDeviceToRemoteTask.this.stop();
-                    }
-                }
-            }, DEFAULT_2MSL_TIME);
+            tcpIoLoopInfo.destroy();
             return;
         }
         if (TcpIoLoopStatus.LAST_ACK == tcpIoLoopInfo.getStatus()) {
@@ -256,7 +244,7 @@ class TcpIoLoopDeviceToRemoteTask implements Runnable {
             Log.d(TcpIoLoopDeviceToRemoteTask.class.getName(),
                     "RECEIVE [ACK(status=LAST_ACK)], close tcp loop, tcp header ="
                             + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
-            this.stop();
+            tcpIoLoopInfo.destroy();
             return;
         }
         Log.e(TcpIoLoopDeviceToRemoteTask.class.getName(),
@@ -274,16 +262,7 @@ class TcpIoLoopDeviceToRemoteTask implements Runnable {
                 "RECEIVE [RST], destroy tcp loop, tcp header =" +
                         inputTcpHeader +
                         ", tcp loop = " + tcpIoLoopInfo);
-        Timer twoMslTimer = new Timer();
-        twoMslTimer.schedule(new TimerTask() {
-            @Override
-            public void run() {
-                Log.d(TcpIoLoopDeviceToRemoteTask.class.getName(),
-                        "2MSL TIMER [RST], stop tcp loop as no message come, tcp header ="
-                                + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
-                TcpIoLoopDeviceToRemoteTask.this.stop();
-            }
-        }, DEFAULT_2MSL_TIME);
+        tcpIoLoopInfo.destroy();
     }
 
     private void doFin(TcpIoLoopInfo tcpIoLoopInfo, TcpHeader inputTcpHeader) {
@@ -319,16 +298,7 @@ class TcpIoLoopDeviceToRemoteTask implements Runnable {
                         "RECEIVE [FIN ACK(status=FIN_WAITE1)], close tcp loop, tcp header ="
                                 + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
                 tcpIoLoopInfo.setStatus(TcpIoLoopStatus.TIME_WAITE);
-                Timer twoMslTimer = new Timer();
-                twoMslTimer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        Log.d(TcpIoLoopDeviceToRemoteTask.class.getName(),
-                                "2MSL TIMER [FIN ACK(status=FIN_WAITE1)], stop tcp loop, tcp header ="
-                                        + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
-                        TcpIoLoopDeviceToRemoteTask.this.stop();
-                    }
-                }, DEFAULT_2MSL_TIME);
+                tcpIoLoopInfo.destroy();
                 return;
             } else {
                 Log.d(TcpIoLoopDeviceToRemoteTask.class.getName(),
@@ -355,7 +325,7 @@ class TcpIoLoopDeviceToRemoteTask implements Runnable {
                             "2MSL TIMER [ACK(status=TIME_WAITE)], send ack and stop tcp loop, send ack, tcp header ="
                                     + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
                     TcpIoLoopOutputWriter.INSTANCE.writeAckToQueue(tcpIoLoopInfo, null);
-                    TcpIoLoopDeviceToRemoteTask.this.stop();
+                    tcpIoLoopInfo.destroy();
                 }
             }, DEFAULT_2MSL_TIME);
             return;
@@ -367,5 +337,6 @@ class TcpIoLoopDeviceToRemoteTask implements Runnable {
         tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
         tcpIoLoopInfo.setStatus(TcpIoLoopStatus.RESET);
         TcpIoLoopOutputWriter.INSTANCE.writeRstAckToQueue(tcpIoLoopInfo);
+        tcpIoLoopInfo.destroy();
     }
 }

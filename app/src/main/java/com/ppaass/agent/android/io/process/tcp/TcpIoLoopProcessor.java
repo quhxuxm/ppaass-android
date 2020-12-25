@@ -30,7 +30,7 @@ public class TcpIoLoopProcessor {
     private final VpnService vpnService;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
-    private final Bootstrap remoteBootstrap;
+
     private final ConcurrentMap<String, TcpIoLoopInfo> tcpIoLoops;
     private final OutputStream remoteToDeviceStream;
     private final ExecutorService loopExecutor;
@@ -42,7 +42,6 @@ public class TcpIoLoopProcessor {
         this.agentPrivateKeyBytes = agentPrivateKeyBytes;
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteToDeviceStream = remoteToDeviceStream;
-        this.remoteBootstrap = this.createRemoteBootstrap();
         this.tcpIoLoops = new ConcurrentHashMap<>();
         this.loopExecutor = Executors.newFixedThreadPool(64);
         this.createTcpLoopCounter = 0;
@@ -106,7 +105,7 @@ public class TcpIoLoopProcessor {
                                     destinationPort, this.tcpIoLoops);
                     loopInfo.setStatus(TcpIoLoopStatus.LISTEN);
                     TcpIoLoopDeviceToRemoteTask
-                            deviceToRemoteTask = new TcpIoLoopDeviceToRemoteTask(loopInfo, remoteBootstrap);
+                            deviceToRemoteTask = new TcpIoLoopDeviceToRemoteTask(loopInfo, this.createRemoteBootstrap());
                     loopInfo.setDeviceToRemoteTask(deviceToRemoteTask);
                     TcpIoLoopRemoteToDeviceTask
                             remoteToDeviceTask = new TcpIoLoopRemoteToDeviceTask(loopInfo, remoteToDeviceStream);
@@ -128,7 +127,7 @@ public class TcpIoLoopProcessor {
 
     private Bootstrap createRemoteBootstrap() {
         Bootstrap remoteBootstrap = new Bootstrap();
-        remoteBootstrap.group(new NioEventLoopGroup(40));
+        remoteBootstrap.group(new NioEventLoopGroup(1));
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(this.vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 20000);
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, false);
