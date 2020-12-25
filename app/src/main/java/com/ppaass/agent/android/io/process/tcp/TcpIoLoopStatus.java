@@ -9,5 +9,6 @@ public enum TcpIoLoopStatus {
     CLOSED,
     FIN_WAITE1,
     FIN_WAITE2,
-    TIME_WAITE
+    TIME_WAITE,
+    RESET
 }

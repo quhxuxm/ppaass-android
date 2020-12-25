@@ -59,6 +59,10 @@ public class TcpIoLoop implements Runnable {
         }
     }
 
+    public BlockingDeque<IpPacket> getDeviceToRemoteIpPacketQueue() {
+        return deviceToRemoteIpPacketQueue;
+    }
+
     public TcpIoLoopInfo getLoopInfo() {
         return loopInfo;
     }
@@ -88,6 +92,12 @@ public class TcpIoLoop implements Runnable {
             }
             TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
             TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
+            if (TcpIoLoopStatus.RESET == this.loopInfo.getStatus()) {
+                Log.d(TcpIoLoop.class.getName(),
+                        "Ignore the incoming ip packet as tcp loop is reset already, tcp header = " + inputTcpHeader +
+                                ", tcp loop = " + this.loopInfo);
+                continue;
+            }
             if (inputTcpHeader.isSyn()) {
                 doSyn(this.loopInfo, inputTcpHeader);
                 continue;
@@ -121,6 +131,7 @@ public class TcpIoLoop implements Runnable {
                             ", tcp loop = " + tcpIoLoopInfo);
             tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
             tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+            tcpIoLoopInfo.setStatus(TcpIoLoopStatus.RESET);
             TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoopInfo, this.remoteToDeviceStream);
             return;
         }
@@ -136,6 +147,7 @@ public class TcpIoLoop implements Runnable {
                                         + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
                         tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
                         tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+                        tcpIoLoopInfo.setStatus(TcpIoLoopStatus.RESET);
                         TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoopInfo, this.remoteToDeviceStream);
                         return;
                     }
@@ -179,6 +191,16 @@ public class TcpIoLoop implements Runnable {
             return;
         }
         tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
+        if (tcpIoLoopInfo.getRemoteChannel() == null || !tcpIoLoopInfo.getRemoteChannel().isOpen()) {
+            Log.e(TcpIoLoop.class.getName(),
+                    "RECEIVE [PSH ACK WITH DATA(size=" + data.length +
+                            ")], Fail to write data to remote because of remote channel has problem, tcp header =" +
+                            inputTcpHeader +
+                            ", tcp loop = " + tcpIoLoopInfo);
+            tcpIoLoopInfo.setStatus(TcpIoLoopStatus.RESET);
+            TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoopInfo, this.remoteToDeviceStream);
+            return;
+        }
         ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
         Log.d(TcpIoLoop.class.getName(),
                 "RECEIVE [PSH ACK WITH DATA(size=" + data.length +
@@ -221,6 +243,16 @@ public class TcpIoLoop implements Runnable {
                 return;
             }
             tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber() + data.length);
+            if (tcpIoLoopInfo.getRemoteChannel() == null || !tcpIoLoopInfo.getRemoteChannel().isOpen()) {
+                Log.e(TcpIoLoop.class.getName(),
+                        "RECEIVE [ACK WITH DATA(status=ESTABLISHED, size=" + data.length +
+                                ")], Fail to write data to remote because of remote channel has problem, tcp header =" +
+                                inputTcpHeader +
+                                ", tcp loop = " + tcpIoLoopInfo);
+                tcpIoLoopInfo.setStatus(TcpIoLoopStatus.RESET);
+                TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoopInfo, this.remoteToDeviceStream);
+                return;
+            }
             ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
             Log.d(TcpIoLoop.class.getName(),
                     "RECEIVE [ACK WITH DATA(status=ESTABLISHED, size=" + data.length +
@@ -272,6 +304,7 @@ public class TcpIoLoop implements Runnable {
                         + inputTcpHeader + " tcp loop = " + tcpIoLoopInfo);
         tcpIoLoopInfo.setCurrentRemoteToDeviceAck(inputTcpHeader.getSequenceNumber());
         tcpIoLoopInfo.setCurrentRemoteToDeviceSeq(inputTcpHeader.getAcknowledgementNumber());
+        tcpIoLoopInfo.setStatus(TcpIoLoopStatus.RESET);
         TcpIoLoopOutputWriter.INSTANCE.writeRstAck(tcpIoLoopInfo, remoteToDeviceStream);
 //        tcpIoLoop.destroy();
     }

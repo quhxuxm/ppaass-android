@@ -56,7 +56,8 @@ public class TcpIoLoopProcessor {
             return;
         }
         Log.v(TcpIoLoopProcessor.class.getName(),
-                "Execute tcp flow for tcp loop, tcp loop = " + tcpIoLoop.getLoopInfo() + ", ip packet = " + ipPacket);
+                "Put ip packet to tcp loop, tcp loop = " + tcpIoLoop.getLoopInfo() + ", current ip packet = " +
+                        ipPacket + ", queued packets = " + tcpIoLoop.getDeviceToRemoteIpPacketQueue());
         tcpIoLoop.offerIpPacket(ipPacket);
     }
 
