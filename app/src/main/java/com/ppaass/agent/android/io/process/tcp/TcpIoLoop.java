@@ -71,8 +71,10 @@ public class TcpIoLoop implements Runnable {
         this.loopInfo.setCurrentRemoteToDeviceAck(-1);
         this.loopInfo.setCurrentRemoteToDeviceSeq(-1);
         this.loopInfo.getAckSemaphore().release();
-        if (this.loopInfo.getRemoteChannel().isOpen()) {
-            this.loopInfo.getRemoteChannel().close();
+        if (this.loopInfo.getRemoteChannel() != null) {
+            if (this.loopInfo.getRemoteChannel().isOpen()) {
+                this.loopInfo.getRemoteChannel().close();
+            }
         }
         this.tcpIoLoopsContainer.remove(this.loopInfo.getKey());
     }
