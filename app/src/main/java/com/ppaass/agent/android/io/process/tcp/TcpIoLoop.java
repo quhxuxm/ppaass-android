@@ -23,6 +23,7 @@ import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_LOO
 
 public class TcpIoLoop implements Runnable {
     private static final int QUEUE_TIMEOUT = 20000;
+    private static final int DEFAULT_2MSL_TIME = 1000 * 120;
     private final TcpIoLoopInfo loopInfo;
     private final BlockingDeque<IpPacket> deviceToRemoteIpPacketQueue;
     private final Bootstrap remoteBootstrap;
@@ -355,7 +356,7 @@ public class TcpIoLoop implements Runnable {
                     public void run() {
                         TcpIoLoop.this.stop();
                     }
-                }, 1000 * 120);
+                }, DEFAULT_2MSL_TIME);
                 return;
             } else {
                 Log.d(TcpIoLoop.class.getName(),
@@ -384,7 +385,7 @@ public class TcpIoLoop implements Runnable {
                     TcpIoLoopOutputWriter.INSTANCE.writeAck(tcpIoLoopInfo, null, remoteToDeviceStream);
                     TcpIoLoop.this.stop();
                 }
-            }, 1000 * 120);
+            }, DEFAULT_2MSL_TIME);
             return;
         }
         Log.e(TcpIoLoop.class.getName(),
