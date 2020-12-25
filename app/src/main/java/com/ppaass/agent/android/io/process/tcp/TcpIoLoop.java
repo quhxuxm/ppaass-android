@@ -41,7 +41,7 @@ public class TcpIoLoop implements Runnable {
         this.alive = true;
     }
 
-    public synchronized boolean offerIpPacket(IpPacket ipPacket) {
+    public boolean offerIpPacket(IpPacket ipPacket) {
         try {
             return this.deviceToRemoteIpPacketQueue.offer(ipPacket, QUEUE_TIMEOUT, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
@@ -52,7 +52,7 @@ public class TcpIoLoop implements Runnable {
         }
     }
 
-    public synchronized IpPacket pollIpPacket() {
+    public IpPacket pollIpPacket() {
         try {
             return this.deviceToRemoteIpPacketQueue.poll(QUEUE_TIMEOUT, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
