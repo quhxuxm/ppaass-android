@@ -30,10 +30,10 @@ public class TcpIoLoopProcessor {
     private final VpnService vpnService;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
-
-    private final ConcurrentMap<String, TcpIoLoopInfo> tcpIoLoops;
+    private final ConcurrentMap<String, TcpIoLoop> tcpIoLoops;
     private final OutputStream remoteToDeviceStream;
-    private final ExecutorService loopExecutor;
+    private final ExecutorService flowExecutor;
+    private final ExecutorService windowExecutor;
     private int createTcpLoopCounter;
 
     public TcpIoLoopProcessor(VpnService vpnService, byte[] agentPrivateKeyBytes, byte[] proxyPublicKeyBytes,
@@ -43,30 +43,35 @@ public class TcpIoLoopProcessor {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.tcpIoLoops = new ConcurrentHashMap<>();
-        this.loopExecutor = Executors.newFixedThreadPool(64);
+        this.flowExecutor = Executors.newFixedThreadPool(10);
+        this.windowExecutor = Executors.newFixedThreadPool(10);
         this.createTcpLoopCounter = 0;
     }
 
     public void process(IpPacket ipPacket) {
-        TcpIoLoopInfo tcpIoLoopInfo = computeIoLoop(ipPacket);
-        if (tcpIoLoopInfo == null) {
+        TcpIoLoop tcpIoLoop = computeIoLoop(ipPacket);
+        if (tcpIoLoop == null) {
             Log.e(TcpIoLoopProcessor.class.getName(),
                     "Some problem happen can not process ip packet, ip packet = " + ipPacket);
             return;
         }
         Log.v(TcpIoLoopProcessor.class.getName(),
-                "Put ip packet to tcp loop, tcp loop = " + tcpIoLoopInfo + ", current ip packet = " +
+                "Put ip packet to tcp loop, tcp loop = " + tcpIoLoop + ", current ip packet = " +
                         ipPacket);
-        if (!tcpIoLoopInfo.offerDeviceToRemoteIpPacket(ipPacket)) {
+        boolean putSuccess = tcpIoLoop.offerDeviceToRemoteIpPacket(ipPacket);
+        Log.v(TcpIoLoopProcessor.class.getName(),
+                "Put ip packet to tcp loop SUCCESS, tcp loop = " + tcpIoLoop + ", current ip packet = " +
+                        ipPacket);
+        if (!putSuccess) {
             Log.e(TcpIoLoopProcessor.class.getName(),
-                    "Put ip packet to tcp loop timeout, ignore the packet, tcp loop = " + tcpIoLoopInfo +
+                    "Put ip packet to tcp loop TIMEOUT, ignore the packet, tcp loop = " + tcpIoLoop +
                             ", current ip packet = " +
                             ipPacket);
         }
     }
 
     @Nullable
-    private TcpIoLoopInfo computeIoLoop(IpPacket ipPacket) {
+    private TcpIoLoop computeIoLoop(IpPacket ipPacket) {
         IpV4Header ipV4Header = (IpV4Header) ipPacket.getHeader();
         TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
         final InetAddress sourceAddress;
@@ -96,26 +101,27 @@ public class TcpIoLoopProcessor {
         return this.tcpIoLoops.computeIfAbsent(tcpIoLoopKey,
                 (key) -> {
                     this.createTcpLoopCounter++;
-                    TcpIoLoopInfo loopInfo =
-                            new TcpIoLoopInfo(key,
+                    TcpIoLoop tcpIoLoop =
+                            new TcpIoLoop(key,
                                     BASE_TCP_LOOP_SEQUENCE + this.createTcpLoopCounter,
                                     sourceAddress,
                                     destinationAddress,
                                     sourcePort,
-                                    destinationPort, this.tcpIoLoops);
-                    loopInfo.setStatus(TcpIoLoopStatus.LISTEN);
-                    TcpIoLoopDeviceToRemoteTask
-                            deviceToRemoteTask = new TcpIoLoopDeviceToRemoteTask(loopInfo, this.createRemoteBootstrap());
-                    loopInfo.setDeviceToRemoteTask(deviceToRemoteTask);
-                    TcpIoLoopRemoteToDeviceTask
-                            remoteToDeviceTask = new TcpIoLoopRemoteToDeviceTask(loopInfo, remoteToDeviceStream);
-                    loopInfo.setRemoteToDeviceTask(remoteToDeviceTask);
-                    this.loopExecutor.execute(deviceToRemoteTask);
-                    this.loopExecutor.execute(remoteToDeviceTask);
+                                    destinationPort, this.tcpIoLoops, remoteToDeviceStream);
+                    tcpIoLoop.setStatus(TcpIoLoopStatus.LISTEN);
+                    TcpIoLoopFlowTask
+                            flowTask =
+                            new TcpIoLoopFlowTask(tcpIoLoop, this.createRemoteBootstrap());
+                    TcpIoLoopWindowTask windowTask =
+                            new TcpIoLoopWindowTask(tcpIoLoop);
+                    tcpIoLoop.setFlowTask(flowTask);
+                    tcpIoLoop.setWindowTask(windowTask);
+                    this.flowExecutor.execute(flowTask);
+                    this.windowExecutor.execute(windowTask);
                     Log.d(TcpIoLoopProcessor.class.getName(),
-                            "Create tcp loop, ip packet = " + ipPacket + ", tcp loop = " + loopInfo +
+                            "Create tcp loop, ip packet = " + ipPacket + ", tcp loop = " + tcpIoLoop +
                                     ", loop container size = " + tcpIoLoops.size());
-                    return loopInfo;
+                    return tcpIoLoop;
                 });
     }
 

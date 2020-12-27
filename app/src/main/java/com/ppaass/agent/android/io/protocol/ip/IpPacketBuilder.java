@@ -33,6 +33,6 @@ public class IpPacketBuilder {
             header.setTotalLength(header.getInternetHeaderLength() * 4 + udpPacket.getHeader().getTotalLength());
             return new IpPacket(header, udpPacket);
         }
-        throw new UnsupportedOperationException("Only support TCP or UDP");
+        return new IpPacket(this.header, null);
     }
 }

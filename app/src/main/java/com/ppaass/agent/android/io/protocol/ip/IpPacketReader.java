@@ -1,6 +1,7 @@
 package com.ppaass.agent.android.io.protocol.ip;
 
 import com.ppaass.agent.android.io.protocol.IProtocolConst;
+import com.ppaass.agent.android.io.protocol.IcmpPacketReader;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacketReader;
 import com.ppaass.agent.android.io.protocol.udp.UdpPacketReader;
 
@@ -18,8 +19,8 @@ public class IpPacketReader {
         int version = versionAndHeaderLength >> 4;
         IpHeaderVersion ipHeaderVersion = IpHeaderVersion.parse((byte) version);
         if (IpHeaderVersion.V4 != ipHeaderVersion) {
-            IpPacketBuilder ipPacketBuilder=new IpPacketBuilder();
-            IpV6Header ipV6Header=new IpV6Header();
+            IpPacketBuilder ipPacketBuilder = new IpPacketBuilder();
+            IpV6Header ipV6Header = new IpV6Header();
             return ipPacketBuilder.header(ipV6Header).build();
         }
         int internalHeaderLength = versionAndHeaderLength & 0xf;
@@ -76,6 +77,7 @@ public class IpPacketReader {
             ipPacketBuilder.data(UdpPacketReader.INSTANCE.parse(dataBytes));
             return ipPacketBuilder.build();
         }
-        throw new UnsupportedOperationException("Only support TCP and UDP");
+        ipPacketBuilder.data(IcmpPacketReader.INSTANCE.parse(dataBytes));
+        return ipPacketBuilder.build();
     }
 }

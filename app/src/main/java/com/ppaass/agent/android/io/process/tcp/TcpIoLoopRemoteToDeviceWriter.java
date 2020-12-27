@@ -13,10 +13,10 @@ import io.netty.buffer.Unpooled;
 import java.io.IOException;
 import java.io.OutputStream;
 
-class TcpIoLoopOutputWriter {
-    public static final TcpIoLoopOutputWriter INSTANCE = new TcpIoLoopOutputWriter();
+class TcpIoLoopRemoteToDeviceWriter {
+    public static final TcpIoLoopRemoteToDeviceWriter INSTANCE = new TcpIoLoopRemoteToDeviceWriter();
 
-    private TcpIoLoopOutputWriter() {
+    private TcpIoLoopRemoteToDeviceWriter() {
     }
 
     private String buildBasePacketType(TcpHeader tcpHeader) {
@@ -38,65 +38,59 @@ class TcpIoLoopOutputWriter {
         return null;
     }
 
-    public void writeSynAckToQueue(TcpIoLoopInfo tcpIoLoopInfo) {
+    public IpPacket buildSynAck(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         ByteBuf mssByteBuf = Unpooled.buffer();
-        mssByteBuf.writeShort(tcpIoLoopInfo.getMss());
+        mssByteBuf.writeShort(tcpIoLoop.getMss());
         tcpPacketBuilder
                 .addOption(new TcpHeaderOption(TcpHeaderOption.Kind.MSS, ByteBufUtil.getBytes(mssByteBuf)))
                 .ack(true).syn(true);
-        IpPacket ipPacket = this.buildIpPacket(tcpPacketBuilder, tcpIoLoopInfo);
-        tcpIoLoopInfo.offerRemoteToDeviceIpPacket(ipPacket);
+        return this.buildIpPacket(tcpPacketBuilder, tcpIoLoop);
     }
 
-    public void writeAckToQueue(TcpIoLoopInfo tcpIoLoopInfo, byte[] data) {
+    public IpPacket buildAck(TcpIoLoop tcpIoLoop, byte[] data) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.ack(true).data(data);
-        IpPacket ipPacket = this.buildIpPacket(tcpPacketBuilder, tcpIoLoopInfo);
-        tcpIoLoopInfo.offerRemoteToDeviceIpPacket(ipPacket);
+        return this.buildIpPacket(tcpPacketBuilder, tcpIoLoop);
     }
 
-    public void writePshAckToQueue(TcpIoLoopInfo tcpIoLoopInfo, byte[] data) {
+    public IpPacket buildPshAck(TcpIoLoop tcpIoLoop, byte[] data) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder
                 .ack(true).psh(true).data(data);
-        IpPacket ipPacket = this.buildIpPacket(tcpPacketBuilder, tcpIoLoopInfo);
-        tcpIoLoopInfo.offerRemoteToDeviceIpPacket(ipPacket);
+        return this.buildIpPacket(tcpPacketBuilder, tcpIoLoop);
     }
 
-    public void writeRstAckToQueue(TcpIoLoopInfo tcpIoLoopInfo) {
+    public IpPacket buildRstAck(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.rst(true).ack(true);
-        IpPacket ipPacket = this.buildIpPacket(tcpPacketBuilder, tcpIoLoopInfo);
-        tcpIoLoopInfo.offerRemoteToDeviceIpPacket(ipPacket);
+        return this.buildIpPacket(tcpPacketBuilder, tcpIoLoop);
     }
 
-    public void writeFinToQueue(TcpIoLoopInfo tcpIoLoopInfo) {
+    public IpPacket buildFin(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.fin(true);
-        IpPacket ipPacket = this.buildIpPacket(tcpPacketBuilder, tcpIoLoopInfo);
-        tcpIoLoopInfo.offerRemoteToDeviceIpPacket(ipPacket);
+        return this.buildIpPacket(tcpPacketBuilder, tcpIoLoop);
     }
 
-    public void writeFinAckToQueue(TcpIoLoopInfo tcpIoLoopInfo) {
+    public IpPacket buildFinAck(TcpIoLoop tcpIoLoop) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.fin(true).ack(true);
-        IpPacket ipPacket = this.buildIpPacket(tcpPacketBuilder, tcpIoLoopInfo);
-        tcpIoLoopInfo.offerRemoteToDeviceIpPacket(ipPacket);
+        return this.buildIpPacket(tcpPacketBuilder, tcpIoLoop);
     }
 
-    private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder, TcpIoLoopInfo tcpIoLoopInfo) {
+    private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder, TcpIoLoop tcpIoLoop) {
         short identification = (short) (Math.random() * 10000);
         IpV4Header ipV4Header =
                 new IpV4HeaderBuilder()
-                        .destinationAddress(tcpIoLoopInfo.getSourceAddress().getAddress())
-                        .sourceAddress(tcpIoLoopInfo.getDestinationAddress().getAddress())
+                        .destinationAddress(tcpIoLoop.getSourceAddress().getAddress())
+                        .sourceAddress(tcpIoLoop.getDestinationAddress().getAddress())
                         .protocol(IpDataProtocol.TCP).identification(identification).build();
         tcpPacketBuilder
-                .sequenceNumber(tcpIoLoopInfo.getCurrentRemoteToDeviceSeq())
-                .acknowledgementNumber(tcpIoLoopInfo.getCurrentRemoteToDeviceAck())
-                .destinationPort(tcpIoLoopInfo.getSourcePort())
-                .sourcePort(tcpIoLoopInfo.getDestinationPort()).window(65535);
+                .sequenceNumber(tcpIoLoop.getRemoteSequence())
+                .acknowledgementNumber(tcpIoLoop.getExpectDeviceSequence())
+                .destinationPort(tcpIoLoop.getSourcePort())
+                .sourcePort(tcpIoLoop.getDestinationPort()).window(65535);
         IpPacketBuilder ipPacketBuilder = new IpPacketBuilder();
         TcpPacket tcpPacket = tcpPacketBuilder.build();
         ipPacketBuilder.data(tcpPacket);
@@ -104,8 +98,7 @@ class TcpIoLoopOutputWriter {
         return ipPacketBuilder.build();
     }
 
-    public void writeIpPacketToDevice(IpPacket ipPacket, TcpIoLoopInfo tcpIoLoopInfo,
-                                      OutputStream remoteToDeviceStream) {
+    public void writeIpPacketToDevice(IpPacket ipPacket, String loopKey, OutputStream remoteToDeviceStream) {
         try {
             TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
             TcpHeader tcpHeader = tcpPacket.getHeader();
@@ -119,22 +112,23 @@ class TcpIoLoopOutputWriter {
             }
             byte[] tcpData = tcpPacket.getData();
             if (tcpData.length == 0) {
-                Log.d(TcpIoLoopOutputWriter.class.getName(),
+                Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
                         "WRITE TO DEVICE [" + packetType + ", NO DATA, size=" + tcpData.length + "], ip packet = " +
                                 ipPacket +
-                                ", tcp loop = " + tcpIoLoopInfo);
+                                ", tcp loop key= " + loopKey);
             } else {
-                Log.d(TcpIoLoopOutputWriter.class.getName(),
+                Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
                         "WRITE TO DEVICE [" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +
-                                ", tcp loop = " + tcpIoLoopInfo +
-                                ", DATA:\n" +
+                                ", tcp loop key= '" + loopKey +
+                                "', DATA:\n" +
                                 ByteBufUtil.prettyHexDump(
                                         Unpooled.wrappedBuffer(tcpData)));
             }
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
             remoteToDeviceStream.flush();
         } catch (IOException e) {
-            Log.e(TcpIoLoopOutputWriter.class.getName(), "Fail to write ip packet to app because of exception.", e);
+            Log.e(TcpIoLoopRemoteToDeviceWriter.class.getName(), "Fail to write ip packet to app because of exception.",
+                    e);
         }
     }
 }
