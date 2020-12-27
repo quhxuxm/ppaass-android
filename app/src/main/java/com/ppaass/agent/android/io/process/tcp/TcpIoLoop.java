@@ -148,7 +148,9 @@ public class TcpIoLoop {
             TcpPacket tcpPacketInWindow = (TcpPacket) ipPacket.getData();
             int tcpPacketDataLength = tcpPacketInWindow.getData().length;
             this.currentWindowSizeInByte += tcpPacketDataLength;
-            return this.window.offer(ipPacket, QUEUE_TIMEOUT, TimeUnit.SECONDS);
+            boolean result = this.window.offer(ipPacket, QUEUE_TIMEOUT, TimeUnit.SECONDS);
+            this.windowTask.resumeToReadMore();
+            return result;
         } catch (InterruptedException e) {
             Log.e(TcpIoLoopFlowTask.class.getName(),
                     "Fail to put ip packet into the window queue because of exception, tcp loop = " +

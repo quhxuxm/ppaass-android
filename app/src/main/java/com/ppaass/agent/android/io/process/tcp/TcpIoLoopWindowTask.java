@@ -7,11 +7,13 @@ class TcpIoLoopWindowTask implements Runnable {
     private final TcpIoLoop loop;
     private boolean alive;
     private boolean pause;
+    private final Object waitToReadMore;
 
     public TcpIoLoopWindowTask(TcpIoLoop loop) {
         this.loop = loop;
         this.alive = true;
         this.pause = false;
+        this.waitToReadMore = new Object();
     }
 
     public synchronized void stop() {
@@ -29,15 +31,21 @@ class TcpIoLoopWindowTask implements Runnable {
         this.notifyAll();
     }
 
+    public void resumeToReadMore() {
+        synchronized (this.waitToReadMore) {
+            this.waitToReadMore.notifyAll();
+        }
+    }
+
     @Override
     public void run() {
         while (this.alive) {
             synchronized (this) {
                 if (this.pause) {
                     try {
-                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread paused, tcp loop = " + this.loop);
+                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread PAUSED, tcp loop = " + this.loop);
                         this.wait();
-                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread resumed, tcp loop = " + this.loop);
+                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread RESUMED, tcp loop = " + this.loop);
                     } catch (InterruptedException e) {
                         Log.e(TcpIoLoopWindowTask.class.getName(),
                                 "Fail to pause tcp loop writing thread because of exception, tcp lool = " + this.loop,
@@ -48,18 +56,24 @@ class TcpIoLoopWindowTask implements Runnable {
             }
             IpPacket ipPacketInWindow = this.loop.pollIpPacketFromWindow();
             if (ipPacketInWindow == null) {
-                try {
-                    Thread.sleep(200);
-                } catch (InterruptedException e) {
-                    Log.e(TcpIoLoopWindowTask.class.getName(),
-                            "Fail to poll ip packet because of exception, tcp loop = " + this.loop,
-                            e);
+                synchronized (this.waitToReadMore) {
+                    try {
+                        Log.d(TcpIoLoopWindowTask.class.getName(),
+                                "Writing thread WAITING to read more data, tcp loop = " + this.loop);
+                        this.waitToReadMore.wait();
+                        Log.d(TcpIoLoopWindowTask.class.getName(),
+                                "Writing thread CONTINUE read more data, tcp loop = " + this.loop);
+                    } catch (InterruptedException e) {
+                        Log.e(TcpIoLoopWindowTask.class.getName(),
+                                "Fail to waite read more because of exception, tcp lool = " + this.loop,
+                                e);
+                    }
                 }
                 continue;
             }
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(ipPacketInWindow, this.loop.getKey(), this.loop.getRemoteToDeviceStream());
-//            }
+            this.pause();
         }
     }
 }

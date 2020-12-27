@@ -27,7 +27,6 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelDuplexHandler {
                     length = remoteMessageByteBuf.readableBytes();
                 }
                 byte[] ackData = ByteBufUtil.getBytes(remoteMessageByteBuf.readBytes(length));
-                tcpIoLoop.setRemoteSequence(tcpIoLoop.getRemoteSequence() + ackData.length);
                 IpPacket ipPacketWroteToDevice =
                         TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildPshAck(tcpIoLoop, ackData);
                 tcpIoLoop.offerIpPacketToWindow(ipPacketWroteToDevice);
