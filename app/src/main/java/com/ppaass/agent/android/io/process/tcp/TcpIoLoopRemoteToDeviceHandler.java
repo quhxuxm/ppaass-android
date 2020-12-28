@@ -57,6 +57,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                             tcpIoLoop.getSourcePort(),
                             deviceInputAckNumber + 1,
                             deviceInputSequenceNumber + deviceInputDataLength);
+            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(finPacket, tcpIoLoop.getKey(),
                             tcpIoLoop.getRemoteToDeviceStream());
