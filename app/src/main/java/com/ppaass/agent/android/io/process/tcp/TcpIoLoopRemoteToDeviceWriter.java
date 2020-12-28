@@ -115,7 +115,7 @@ class TcpIoLoopRemoteToDeviceWriter {
                 Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
                         "WRITE TO DEVICE [" + packetType + ", NO DATA, size=" + tcpData.length + "], ip packet = " +
                                 ipPacket +
-                                ", tcp loop key= " + loopKey);
+                                ", tcp loop key= '" + loopKey+"'");
             } else {
                 Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
                         "WRITE TO DEVICE [" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +

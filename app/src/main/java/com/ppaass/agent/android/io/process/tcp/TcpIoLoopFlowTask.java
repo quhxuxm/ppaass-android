@@ -21,17 +21,28 @@ class TcpIoLoopFlowTask implements Runnable {
     private final TcpIoLoop loop;
     private final Bootstrap remoteBootstrap;
     private boolean alive;
+    private final Object waitToReadMore;
 
     public TcpIoLoopFlowTask(TcpIoLoop loop, Bootstrap remoteBootstrap) {
         this.loop = loop;
         this.remoteBootstrap = remoteBootstrap;
         this.alive = true;
+        this.waitToReadMore = new Object();
     }
 
     public synchronized void stop() {
         Log.d(TcpIoLoopFlowTask.class.getName(),
                 "Stop tcp loop device to remote task, tcp loop = " + this.loop);
         this.alive = false;
+        synchronized (this.waitToReadMore) {
+            this.waitToReadMore.notifyAll();
+        }
+    }
+
+    public void resumeToReadMore() {
+        synchronized (this.waitToReadMore) {
+            this.waitToReadMore.notifyAll();
+        }
     }
 
     @Override
@@ -39,6 +50,18 @@ class TcpIoLoopFlowTask implements Runnable {
         while (this.alive) {
             IpPacket inputIpPacket = this.loop.pollDeviceToRemoteIpPacket();
             if (inputIpPacket == null) {
+                synchronized (this.waitToReadMore) {
+                    try {
+                        Log.d(TcpIoLoopFlowTask.class.getName(), "Flow thread PAUSED, tcp loop = " + this.loop);
+                        this.waitToReadMore.wait();
+                        Log.d(TcpIoLoopFlowTask.class.getName(), "Flow thread RESUMED, tcp loop = " + this.loop);
+                    } catch (InterruptedException e) {
+                        Log.e(TcpIoLoopFlowTask.class.getName(),
+                                "Fail to pause tcp loop flow thread because of exception, tcp loop = " + this.loop,
+                                e);
+                        continue;
+                    }
+                }
                 continue;
             }
             synchronized (this.loop) {
@@ -162,15 +185,16 @@ class TcpIoLoopFlowTask implements Runnable {
                     "RECEIVE [PSH ACK WITHOUT DATA(size=0)], No data to remote ack to device, tcp header =" +
                             inputTcpHeader +
                             ", tcp loop = " + this.loop);
-            if (this.loop.getWindowSizeInByte() == 0) {
-                this.loop.getWindowTask().pause();
-            } else {
-                this.loop.getWindowTask().resume();
-            }
+//            if (this.loop.getWindowSizeInByte() == 0) {
+//                this.loop.getWindowTask().pause();
+//            } else {
+//                this.loop.getWindowTask().resume();
+//            }
+            this.loop.getWindowTask().resume();
             return;
         }
-        this.loop.setExpectDeviceSequence(inputTcpHeader.getSequenceNumber() + data.length);
         this.loop.setRemoteSequence(inputTcpHeader.getAcknowledgementNumber());
+        this.loop.setExpectDeviceSequence(inputTcpHeader.getSequenceNumber() + data.length);
         if (this.loop.getRemoteChannel() == null || !this.loop.getRemoteChannel().isOpen()) {
             Log.e(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [PSH ACK WITH DATA(size=" + data.length +
@@ -190,6 +214,10 @@ class TcpIoLoopFlowTask implements Runnable {
                         inputTcpHeader +
                         ", tcp loop = " + this.loop + ", DATA: \n" +
                         ByteBufUtil.prettyHexDump(pshDataByteBuf));
+//        IpPacket ackPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildPshAck(this.loop, null);
+//        TcpIoLoopRemoteToDeviceWriter.INSTANCE
+//                .writeIpPacketToDevice(ackPacket, this.loop.getKey(), this.loop.getRemoteToDeviceStream());
+//        this.loop.getWindowTask().pause();
         this.loop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
     }
 
@@ -211,11 +239,12 @@ class TcpIoLoopFlowTask implements Runnable {
                                 "release the lock continue push data to device from remote, tcp header =" +
                                 inputTcpHeader +
                                 ", tcp loop = " + this.loop);
-                if (this.loop.getWindowSizeInByte() == 0) {
-                    this.loop.getWindowTask().pause();
-                } else {
-                    this.loop.getWindowTask().resume();
-                }
+//                if (this.loop.getWindowSizeInByte() == 0) {
+//                    this.loop.getWindowTask().pause();
+//                } else {
+//                    this.loop.getWindowTask().resume();
+//                }
+                this.loop.getWindowTask().resume();
                 return;
             }
             this.loop.setRemoteSequence(inputTcpHeader.getAcknowledgementNumber());
@@ -238,6 +267,10 @@ class TcpIoLoopFlowTask implements Runnable {
                             ")], write data to remote, tcp header =" +
                             inputTcpHeader +
                             ", tcp loop = " + this.loop + ", DATA: \n" + ByteBufUtil.prettyHexDump(pshDataByteBuf));
+//            IpPacket ackPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildPshAck(this.loop, null);
+//            TcpIoLoopRemoteToDeviceWriter.INSTANCE
+//                    .writeIpPacketToDevice(ackPacket, this.loop.getKey(), this.loop.getRemoteToDeviceStream());
+//            this.loop.getWindowTask().pause();
             this.loop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
             return;
         }

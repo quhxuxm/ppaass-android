@@ -20,6 +20,12 @@ class TcpIoLoopWindowTask implements Runnable {
         Log.d(TcpIoLoopWindowTask.class.getName(),
                 "Stop tcp loop remote to device task, tcp loop = " + this.loop);
         this.alive = false;
+        synchronized (this.waitToReadMore) {
+            this.waitToReadMore.notifyAll();
+        }
+        synchronized (this) {
+            this.notifyAll();
+        }
     }
 
     public synchronized void pause() {
@@ -43,12 +49,12 @@ class TcpIoLoopWindowTask implements Runnable {
             synchronized (this) {
                 if (this.pause) {
                     try {
-                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread PAUSED, tcp loop = " + this.loop);
+                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread PAUSED FOR ACK, tcp loop = " + this.loop);
                         this.wait();
-                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread RESUMED, tcp loop = " + this.loop);
+                        Log.d(TcpIoLoopWindowTask.class.getName(), "Writing thread RESUMED FOR ACK, tcp loop = " + this.loop);
                     } catch (InterruptedException e) {
                         Log.e(TcpIoLoopWindowTask.class.getName(),
-                                "Fail to pause tcp loop writing thread because of exception, tcp lool = " + this.loop,
+                                "Fail to pause tcp loop writing thread because of exception, tcp loop = " + this.loop,
                                 e);
                         continue;
                     }

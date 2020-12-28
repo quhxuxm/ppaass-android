@@ -123,7 +123,9 @@ public class TcpIoLoop {
 
     public boolean offerDeviceToRemoteIpPacket(IpPacket ipPacket) {
         try {
-            return this.deviceToRemoteIpPacketQueue.offer(ipPacket, QUEUE_TIMEOUT, TimeUnit.SECONDS);
+            boolean result = this.deviceToRemoteIpPacketQueue.offer(ipPacket, QUEUE_TIMEOUT, TimeUnit.SECONDS);
+            this.flowTask.resumeToReadMore();
+            return result;
         } catch (InterruptedException e) {
             Log.e(TcpIoLoopFlowTask.class.getName(),
                     "Fail to put ip packet into the device to remote queue because of exception, tcp loop = " +

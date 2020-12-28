@@ -30,6 +30,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelDuplexHandler {
                 IpPacket ipPacketWroteToDevice =
                         TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildPshAck(tcpIoLoop, ackData);
                 tcpIoLoop.offerIpPacketToWindow(ipPacketWroteToDevice);
+                tcpIoLoop.setRemoteSequence(tcpIoLoop.getRemoteSequence() + length);
             }
             ReferenceCountUtil.release(remoteMessage);
         }
