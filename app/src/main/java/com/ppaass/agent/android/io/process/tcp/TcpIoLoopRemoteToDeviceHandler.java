@@ -23,7 +23,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
         Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         ByteBuf remoteMessageByteBuf = (ByteBuf) remoteMessage;
-        int readableBytesNumber = remoteMessageByteBuf.readableBytes();
+//        int readableBytesNumber = remoteMessageByteBuf.readableBytes();
         Long deviceInputSequenceNumber = remoteChannel.attr(DEVICE_INPUT_SEQUENCE_NUMBER).get();
         Long deviceInputAckNumber = remoteChannel.attr(DEVICE_INPUT_ACKNOWLEDGEMENT_NUMBER).get();
         Integer deviceInputDataLength = remoteChannel.attr(DEVICE_INPUT_DATA_LENGTH).get();
@@ -48,20 +48,20 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                     .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             tcpIoLoop.getRemoteToDeviceStream());
         }
-        if (readableBytesNumber < remoteMessageByteBuf.capacity()) {
-            IpPacket finPacket =
-                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFin(
-                            tcpIoLoop.getDestinationAddress(),
-                            tcpIoLoop.getDestinationPort(),
-                            tcpIoLoop.getSourceAddress(),
-                            tcpIoLoop.getSourcePort(),
-                            deviceInputAckNumber + 1,
-                            deviceInputSequenceNumber + deviceInputDataLength);
-            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
-            TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(finPacket, tcpIoLoop.getKey(),
-                            tcpIoLoop.getRemoteToDeviceStream());
-        }
+//        if (readableBytesNumber < remoteMessageByteBuf.capacity()) {
+//            IpPacket finPacket =
+//                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFin(
+//                            tcpIoLoop.getDestinationAddress(),
+//                            tcpIoLoop.getDestinationPort(),
+//                            tcpIoLoop.getSourceAddress(),
+//                            tcpIoLoop.getSourcePort(),
+//                            deviceInputAckNumber + 1,
+//                            deviceInputSequenceNumber + deviceInputDataLength);
+//            tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
+//            TcpIoLoopRemoteToDeviceWriter.INSTANCE
+//                    .writeIpPacketToDevice(finPacket, tcpIoLoop.getKey(),
+//                            tcpIoLoop.getRemoteToDeviceStream());
+//        }
         ReferenceCountUtil.release(remoteMessage);
     }
 
