@@ -1,15 +1,10 @@
 package com.ppaass.agent.android.io.process.tcp;
 
-import android.util.Log;
-import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.channel.Channel;
 
 import java.io.OutputStream;
 import java.net.InetAddress;
-import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
 
 public class TcpIoLoop {
     public static final int BASE_TCP_LOOP_SEQUENCE = (int) (Math.random() * 100000);
@@ -22,9 +17,7 @@ public class TcpIoLoop {
     private TcpIoLoopStatus status;
     private int mss;
     private int windowSizeInByte;
-    private int currentWindowSizeInByte;
     private Channel remoteChannel;
-    private final BlockingDeque<IpPacket> deviceToRemoteIpPacketQueue;
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
@@ -43,8 +36,6 @@ public class TcpIoLoop {
         this.status = TcpIoLoopStatus.CLOSED;
         this.mss = -1;
         this.windowSizeInByte = 0;
-        this.currentWindowSizeInByte = 0;
-        this.deviceToRemoteIpPacketQueue = new LinkedBlockingDeque<>(1024);
     }
 
     public String getKey() {
@@ -99,32 +90,8 @@ public class TcpIoLoop {
         return status;
     }
 
-    public boolean offerDeviceToRemoteIpPacket(IpPacket ipPacket) {
-        try {
-            boolean result = this.deviceToRemoteIpPacketQueue.offer(ipPacket, QUEUE_TIMEOUT, TimeUnit.SECONDS);
-            this.flowTask.resumeToReadMore();
-            return result;
-        } catch (InterruptedException e) {
-            Log.e(TcpIoLoopFlowTask.class.getName(),
-                    "Fail to put ip packet into the device to remote queue because of exception, tcp loop = " +
-                            this, e);
-            return false;
-        }
-    }
-
-    public IpPacket pollDeviceToRemoteIpPacket() {
-        try {
-            return this.deviceToRemoteIpPacketQueue.poll(QUEUE_TIMEOUT, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Log.e(TcpIoLoopFlowTask.class.getName(),
-                    "Fail to take ip packet from the device to remote queue because of exception, tcp loop = " +
-                            this, e);
-            return null;
-        }
-    }
-
-    public synchronized int getCurrentWindowSizeInByte() {
-        return currentWindowSizeInByte;
+    public TcpIoLoopFlowTask getFlowTask() {
+        return flowTask;
     }
 
     public OutputStream getRemoteToDeviceStream() {
@@ -135,19 +102,30 @@ public class TcpIoLoop {
         this.flowTask = flowTask;
     }
 
-    public void destroy() {
+    public void reset() {
         synchronized (this) {
-            this.container.remove(this.getKey());
-            this.status = TcpIoLoopStatus.CLOSED;
-            this.deviceToRemoteIpPacketQueue.clear();
-            this.currentWindowSizeInByte = 0;
-            this.flowTask.stop();
+            this.status = TcpIoLoopStatus.LISTEN;
+            this.mss = 0;
+            this.windowSizeInByte = 0;
             if (this.getRemoteChannel() != null) {
                 if (this.getRemoteChannel().isOpen()) {
                     this.getRemoteChannel().close();
                 }
             }
-//        this.windowTask.stop();
+        }
+    }
+
+    public void destroy() {
+        synchronized (this) {
+            this.container.remove(this.getKey());
+            this.status = TcpIoLoopStatus.CLOSED;
+            this.mss = 0;
+            this.windowSizeInByte = 0;
+            if (this.getRemoteChannel() != null) {
+                if (this.getRemoteChannel().isOpen()) {
+                    this.getRemoteChannel().close();
+                }
+            }
         }
     }
 

@@ -20,8 +20,6 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_IO_LOOP_KEY_FORMAT;
 
@@ -31,8 +29,6 @@ public class TcpIoLoopProcessor {
     private final byte[] proxyPublicKeyBytes;
     private final ConcurrentMap<String, TcpIoLoop> tcpIoLoops;
     private final OutputStream remoteToDeviceStream;
-    private final ExecutorService flowExecutor;
-    private int createTcpLoopCounter;
     private final NioEventLoopGroup remoteNioEventLoopGroup;
 
     public TcpIoLoopProcessor(VpnService vpnService, byte[] agentPrivateKeyBytes, byte[] proxyPublicKeyBytes,
@@ -42,8 +38,6 @@ public class TcpIoLoopProcessor {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.tcpIoLoops = new ConcurrentHashMap<>();
-        this.flowExecutor = Executors.newFixedThreadPool(32);
-        this.createTcpLoopCounter = 0;
         this.remoteNioEventLoopGroup = new NioEventLoopGroup(32);
     }
 
@@ -54,19 +48,7 @@ public class TcpIoLoopProcessor {
                     "Some problem happen can not process ip packet, ip packet = " + ipPacket);
             return;
         }
-//        Log.v(TcpIoLoopProcessor.class.getName(),
-//                "Put ip packet to tcp loop, tcp loop = " + tcpIoLoop + ", current ip packet = " +
-//                        ipPacket);
-        boolean putSuccess = tcpIoLoop.offerDeviceToRemoteIpPacket(ipPacket);
-//        Log.v(TcpIoLoopProcessor.class.getName(),
-//                "Put ip packet to tcp loop SUCCESS, tcp loop = " + tcpIoLoop + ", current ip packet = " +
-//                        ipPacket);
-        if (!putSuccess) {
-            Log.e(TcpIoLoopProcessor.class.getName(),
-                    "Put ip packet to tcp loop TIMEOUT, ignore the packet, tcp loop = " + tcpIoLoop +
-                            ", current ip packet = " +
-                            ipPacket);
-        }
+        tcpIoLoop.getFlowTask().execute(ipPacket);
     }
 
     @Nullable
@@ -110,7 +92,6 @@ public class TcpIoLoopProcessor {
                             flowTask =
                             new TcpIoLoopFlowTask(tcpIoLoop, this.createRemoteBootstrap());
                     tcpIoLoop.setFlowTask(flowTask);
-                    this.flowExecutor.execute(flowTask);
                     Log.d(TcpIoLoopProcessor.class.getName(),
                             "Create tcp loop, ip packet = " + ipPacket + ", tcp loop = " + tcpIoLoop +
                                     ", loop container size = " + tcpIoLoops.size());
@@ -128,7 +109,7 @@ public class TcpIoLoopProcessor {
         Bootstrap remoteBootstrap = new Bootstrap();
         remoteBootstrap.group(remoteNioEventLoopGroup);
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(this.vpnService));
-        remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 20000);
+        remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, false);
         remoteBootstrap.option(ChannelOption.AUTO_READ, true);
         remoteBootstrap.option(ChannelOption.AUTO_CLOSE, false);

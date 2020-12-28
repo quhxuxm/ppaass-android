@@ -15,7 +15,7 @@ public class PpaassVpnService extends VpnService {
     private FileInputStream vpnInputStream;
     private FileOutputStream vpnOutputStream;
     private ParcelFileDescriptor vpnInterface;
-    private PpaassVpnWorker vpnWorker;
+    private PpaassVpnWorker worker;
 
     public PpaassVpnService() {
     }
@@ -57,19 +57,19 @@ public class PpaassVpnService extends VpnService {
             this.vpnInputStream = new FileInputStream(vpnFileDescriptor);
             this.vpnOutputStream = new FileOutputStream(vpnFileDescriptor);
         }
-        this.vpnWorker = new PpaassVpnWorker(this.vpnInputStream, this.vpnOutputStream, this, agentPrivateKeyBytes,
+        this.worker = new PpaassVpnWorker(this.vpnInputStream, this.vpnOutputStream, this, agentPrivateKeyBytes,
                 proxyPublicKeyBytes);
     }
 
     @Override
     public int onStartCommand(final Intent intent, int flags, int startId) {
-        this.vpnWorker.start();
+        this.worker.start();
         return START_STICKY;
     }
 
     @Override
     public void onDestroy() {
-        this.vpnWorker.stop();
+        this.worker.stop();
         try {
             this.vpnInputStream.close();
             this.vpnOutputStream.close();

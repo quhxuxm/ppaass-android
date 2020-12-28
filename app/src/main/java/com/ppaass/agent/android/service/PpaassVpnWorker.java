@@ -55,20 +55,18 @@ public class PpaassVpnWorker implements Runnable {
             try {
                 int readResult = this.deviceToRemoteStream.read(buffer);
                 if (readResult <= 0) {
-                    Thread.sleep(200);
+                    Thread.sleep(50);
                     continue;
                 }
                 IpPacket ipPacket = IpPacketReader.INSTANCE.parse(buffer);
                 if (IpHeaderVersion.V4 != ipPacket.getHeader().getVersion()) {
                     Log.e(PpaassVpnService.class.getName(), "Ignore non-ipv4 packet.");
-                    Thread.sleep(200);
                     continue;
                 }
                 IpV4Header ipV4Header = (IpV4Header) ipPacket.getHeader();
                 IpDataProtocol protocol = ipV4Header.getProtocol();
                 if (IpDataProtocol.TCP == protocol) {
                     this.tcpIoLoopProcessor.process(ipPacket);
-                    Thread.sleep(200);
                     continue;
                 }
                 Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);
