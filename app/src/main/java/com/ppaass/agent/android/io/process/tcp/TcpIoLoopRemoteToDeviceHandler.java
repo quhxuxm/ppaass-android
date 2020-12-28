@@ -1,38 +1,60 @@
 package com.ppaass.agent.android.io.process.tcp;
 
+import android.util.Log;
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
-import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.channel.socket.DuplexChannel;
+import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
 
+import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.*;
+
 @ChannelHandler.Sharable
-public class TcpIoLoopRemoteToDeviceHandler extends ChannelDuplexHandler {
+public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter {
     public TcpIoLoopRemoteToDeviceHandler() {
     }
 
     @Override
     public void channelRead(ChannelHandlerContext remoteChannelContext, Object remoteMessage)
             throws Exception {
-        DuplexChannel remoteChannel = (DuplexChannel) remoteChannelContext.channel();
+        Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
-        synchronized (tcpIoLoop) {
-            ByteBuf remoteMessageByteBuf = (ByteBuf) remoteMessage;
-            while (remoteMessageByteBuf.isReadable()) {
-                int length = tcpIoLoop.getMss();
-                if (remoteMessageByteBuf.readableBytes() < length) {
-                    length = remoteMessageByteBuf.readableBytes();
-                }
-                byte[] ackData = ByteBufUtil.getBytes(remoteMessageByteBuf.readBytes(length));
-                IpPacket ipPacketWroteToDevice =
-                        TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildPshAck(tcpIoLoop, ackData);
-                tcpIoLoop.offerIpPacketToWindow(ipPacketWroteToDevice);
-                tcpIoLoop.setRemoteSequence(tcpIoLoop.getRemoteSequence() + length);
+        ByteBuf remoteMessageByteBuf = (ByteBuf) remoteMessage;
+        Long deviceInputSequenceNumber = remoteChannel.attr(DEVICE_INPUT_SEQUENCE_NUMBER).get();
+        Long deviceInputAckNumber = remoteChannel.attr(DEVICE_INPUT_ACKNOWLEDGEMENT_NUMBER).get();
+        Integer deviceInputDataLength = remoteChannel.attr(DEVICE_INPUT_DATA_LENGTH).get();
+        while (remoteMessageByteBuf.isReadable()) {
+            int length = tcpIoLoop.getMss();
+            if (remoteMessageByteBuf.readableBytes() < length) {
+                length = remoteMessageByteBuf.readableBytes();
             }
-            ReferenceCountUtil.release(remoteMessage);
+            byte[] ackData = ByteBufUtil.getBytes(remoteMessageByteBuf.readBytes(length));
+            IpPacket ipPacketWroteToDevice =
+                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildPshAck(
+                            tcpIoLoop.getDestinationAddress(),
+                            tcpIoLoop.getDestinationPort(),
+                            tcpIoLoop.getSourceAddress(),
+                            tcpIoLoop.getSourcePort(),
+                            deviceInputAckNumber,
+                            deviceInputSequenceNumber + deviceInputDataLength
+                            , ackData);
+            deviceInputAckNumber += length;
+            remoteChannel.attr(DEVICE_INPUT_ACKNOWLEDGEMENT_NUMBER).set(deviceInputAckNumber);
+            TcpIoLoopRemoteToDeviceWriter.INSTANCE
+                    .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
+                            tcpIoLoop.getRemoteToDeviceStream());
         }
+        ReferenceCountUtil.release(remoteMessage);
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext remoteChannelContext, Throwable cause) throws Exception {
+        Channel remoteChannel = remoteChannelContext.channel();
+        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
+        Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
+                "Exception for tcp loop remote channel, tcp loop=" + tcpIoLoop, cause);
     }
 }
