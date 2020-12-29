@@ -88,6 +88,7 @@ class TcpIoLoopFlowTask {
                         );
                         TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                                 this.loop.getRemoteToDeviceStream());
+                        this.loop.destroy();
                         return;
                     }
                     this.loop.setRemoteChannel(connectResultFuture.channel());
@@ -152,6 +153,7 @@ class TcpIoLoopFlowTask {
             );
             TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                     this.loop.getRemoteToDeviceStream());
+            this.loop.destroy();
             return;
         }
         this.loop.getRemoteChannel().attr(ITcpIoLoopConstant.DEVICE_INPUT_SEQUENCE_NUMBER)
@@ -197,6 +199,7 @@ class TcpIoLoopFlowTask {
                 );
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE
                         .writeIpPacketToDevice(rstAckPacket, this.loop.getKey(), this.loop.getRemoteToDeviceStream());
+                this.loop.destroy();
                 return;
             }
             ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);

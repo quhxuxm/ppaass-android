@@ -110,9 +110,9 @@ public class TcpIoLoopProcessor {
         remoteBootstrap.group(remoteNioEventLoopGroup);
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(this.vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
-        remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, false);
+        remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         remoteBootstrap.option(ChannelOption.AUTO_READ, true);
-        remoteBootstrap.option(ChannelOption.AUTO_CLOSE, false);
+        remoteBootstrap.option(ChannelOption.AUTO_CLOSE, true);
         remoteBootstrap.option(ChannelOption.ALLOCATOR, PreferHeapByteBufAllocator.DEFAULT);
         remoteBootstrap.option(ChannelOption.TCP_NODELAY, true);
         remoteBootstrap.option(ChannelOption.SO_REUSEADDR, true);
