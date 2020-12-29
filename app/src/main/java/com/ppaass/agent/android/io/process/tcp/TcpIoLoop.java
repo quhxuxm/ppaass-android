@@ -5,6 +5,7 @@ import io.netty.channel.Channel;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutorService;
 
 public class TcpIoLoop {
     private final InetAddress sourceAddress;
@@ -20,6 +21,7 @@ public class TcpIoLoop {
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
     private final long baseSequence;
+
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,

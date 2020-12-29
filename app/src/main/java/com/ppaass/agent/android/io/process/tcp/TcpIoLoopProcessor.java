@@ -18,8 +18,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.*;
 
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_IO_LOOP_KEY_FORMAT;
 
@@ -30,6 +29,7 @@ public class TcpIoLoopProcessor {
     private final ConcurrentMap<String, TcpIoLoop> tcpIoLoops;
     private final OutputStream remoteToDeviceStream;
     private final NioEventLoopGroup remoteNioEventLoopGroup;
+    private final ScheduledExecutorService twoMslTimerExecutor;
 
     public TcpIoLoopProcessor(VpnService vpnService, byte[] agentPrivateKeyBytes, byte[] proxyPublicKeyBytes,
                               OutputStream remoteToDeviceStream) {
@@ -39,6 +39,7 @@ public class TcpIoLoopProcessor {
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.tcpIoLoops = new ConcurrentHashMap<>();
         this.remoteNioEventLoopGroup = new NioEventLoopGroup(512);
+        this.twoMslTimerExecutor= Executors.newScheduledThreadPool(64);
     }
 
     public void process(IpPacket ipPacket) {
@@ -90,7 +91,7 @@ public class TcpIoLoopProcessor {
                     tcpIoLoop.setStatus(TcpIoLoopStatus.LISTEN);
                     TcpIoLoopFlowTask
                             flowTask =
-                            new TcpIoLoopFlowTask(tcpIoLoop, this.createRemoteBootstrap());
+                            new TcpIoLoopFlowTask(tcpIoLoop, this.createRemoteBootstrap(), twoMslTimerExecutor);
                     tcpIoLoop.setFlowTask(flowTask);
                     Log.d(TcpIoLoopProcessor.class.getName(),
                             "Create tcp loop, ip packet = " + ipPacket + ", tcp loop = " + tcpIoLoop +
