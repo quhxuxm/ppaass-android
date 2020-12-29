@@ -5,6 +5,8 @@ import io.netty.channel.Channel;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class TcpIoLoop {
     private final InetAddress sourceAddress;
@@ -20,7 +22,7 @@ public class TcpIoLoop {
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
     private final long baseSequence;
-    private boolean initialized;
+    private final Lock initializeLock;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -37,15 +39,11 @@ public class TcpIoLoop {
         this.mss = -1;
         this.windowSizeInByte = 0;
         this.baseSequence = Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
-        this.initialized = false;
+        this.initializeLock = new ReentrantLock();
     }
 
-    public synchronized void markInitialized() {
-        this.initialized = true;
-    }
-
-    public synchronized boolean isInitialized() {
-        return initialized;
+    public Lock getInitializeLock() {
+        return initializeLock;
     }
 
     public long getBaseSequence() {
@@ -134,7 +132,6 @@ public class TcpIoLoop {
     public String toString() {
         return "TcpIoLoop{" +
                 "key='" + key + '\'' +
-                "initialized=" + initialized +
                 ", sourceAddress=" + sourceAddress +
                 ", destinationAddress=" + destinationAddress +
                 ", sourcePort=" + sourcePort +

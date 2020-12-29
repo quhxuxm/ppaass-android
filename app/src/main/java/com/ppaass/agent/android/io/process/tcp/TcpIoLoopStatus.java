@@ -3,6 +3,7 @@ package com.ppaass.agent.android.io.process.tcp;
 public enum TcpIoLoopStatus {
     LISTEN,
     SYN_RECEIVED,
+    SYN_SENT,
     ESTABLISHED,
     CLOSE_WAIT,
     LAST_ACK,
