@@ -38,7 +38,7 @@ public class TcpIoLoopProcessor {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.tcpIoLoops = new ConcurrentHashMap<>();
-        this.remoteNioEventLoopGroup = new NioEventLoopGroup(32);
+        this.remoteNioEventLoopGroup = new NioEventLoopGroup(128);
     }
 
     public void process(IpPacket ipPacket) {
