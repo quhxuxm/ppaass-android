@@ -5,7 +5,6 @@ import io.netty.channel.Channel;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 
 public class TcpIoLoop {
     private final InetAddress sourceAddress;
@@ -21,7 +20,7 @@ public class TcpIoLoop {
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
     private final long baseSequence;
-
+    private boolean initialized;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -38,6 +37,15 @@ public class TcpIoLoop {
         this.mss = -1;
         this.windowSizeInByte = 0;
         this.baseSequence = Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
+        this.initialized = false;
+    }
+
+    public synchronized void markInitialized() {
+        this.initialized = true;
+    }
+
+    public synchronized boolean isInitialized() {
+        return initialized;
     }
 
     public long getBaseSequence() {
@@ -108,19 +116,6 @@ public class TcpIoLoop {
         this.flowTask = flowTask;
     }
 
-    public void reset() {
-        synchronized (this) {
-            this.status = TcpIoLoopStatus.LISTEN;
-            this.mss = 0;
-            this.windowSizeInByte = 0;
-            if (this.getRemoteChannel() != null) {
-                if (this.getRemoteChannel().isOpen()) {
-                    this.getRemoteChannel().close();
-                }
-            }
-        }
-    }
-
     public void destroy() {
         synchronized (this) {
             this.container.remove(this.getKey());
@@ -139,6 +134,7 @@ public class TcpIoLoop {
     public String toString() {
         return "TcpIoLoop{" +
                 "key='" + key + '\'' +
+                "initialized=" + initialized +
                 ", sourceAddress=" + sourceAddress +
                 ", destinationAddress=" + destinationAddress +
                 ", sourcePort=" + sourcePort +
