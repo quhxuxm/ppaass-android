@@ -38,7 +38,7 @@ public class TcpIoLoopProcessor {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.tcpIoLoops = new ConcurrentHashMap<>();
-        this.remoteNioEventLoopGroup = new NioEventLoopGroup(128);
+        this.remoteNioEventLoopGroup = new NioEventLoopGroup(512);
     }
 
     public void process(IpPacket ipPacket) {
@@ -116,7 +116,7 @@ public class TcpIoLoopProcessor {
         remoteBootstrap.option(ChannelOption.ALLOCATOR, PreferHeapByteBufAllocator.DEFAULT);
         remoteBootstrap.option(ChannelOption.TCP_NODELAY, true);
         remoteBootstrap.option(ChannelOption.SO_REUSEADDR, true);
-        remoteBootstrap.option(ChannelOption.SO_LINGER, -1);
+        remoteBootstrap.option(ChannelOption.SO_LINGER, 1);
         remoteBootstrap.option(ChannelOption.SO_RCVBUF, 65536);
         remoteBootstrap.option(ChannelOption.SO_SNDBUF, 65536);
         remoteBootstrap.handler(new ChannelInitializer<SocketChannel>() {
