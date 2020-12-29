@@ -5,8 +5,6 @@ import io.netty.channel.Channel;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class TcpIoLoop {
     private final InetAddress sourceAddress;
@@ -21,8 +19,9 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
-    private final long baseSequence;
-    private final Lock initializeLock;
+    private final long baseRemoteSequence;
+    private long baseDeviceSequence;
+    private boolean initializeStarted;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -38,16 +37,28 @@ public class TcpIoLoop {
         this.status = TcpIoLoopStatus.CLOSED;
         this.mss = -1;
         this.windowSizeInByte = 0;
-        this.baseSequence = Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
-        this.initializeLock = new ReentrantLock();
+        this.baseRemoteSequence = Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
+        this.initializeStarted = false;
     }
 
-    public Lock getInitializeLock() {
-        return initializeLock;
+    public synchronized void markInitializeStarted() {
+        this.initializeStarted = true;
     }
 
-    public long getBaseSequence() {
-        return baseSequence;
+    public synchronized boolean isInitializeStarted() {
+        return initializeStarted;
+    }
+
+    public long getBaseRemoteSequence() {
+        return baseRemoteSequence;
+    }
+
+    public synchronized void setBaseDeviceSequence(long baseDeviceSequence) {
+        this.baseDeviceSequence = baseDeviceSequence;
+    }
+
+    public synchronized long getBaseDeviceSequence() {
+        return baseDeviceSequence;
     }
 
     public String getKey() {
@@ -114,16 +125,24 @@ public class TcpIoLoop {
         this.flowTask = flowTask;
     }
 
-    public void destroy() {
-        synchronized (this) {
-            this.container.remove(this.getKey());
-            this.status = TcpIoLoopStatus.CLOSED;
-            this.mss = 0;
-            this.windowSizeInByte = 0;
-            if (this.getRemoteChannel() != null) {
-                if (this.getRemoteChannel().isOpen()) {
-                    this.getRemoteChannel().close();
-                }
+    public synchronized void reset() {
+        this.status = TcpIoLoopStatus.LISTEN;
+        this.initializeStarted = false;
+        if (this.remoteChannel != null) {
+            if (this.remoteChannel.isOpen()) {
+                this.remoteChannel.close();
+            }
+        }
+    }
+
+    public synchronized void destroy() {
+        this.container.remove(this.getKey());
+        this.status = TcpIoLoopStatus.CLOSED;
+        this.mss = 0;
+        this.windowSizeInByte = 0;
+        if (this.remoteChannel != null) {
+            if (this.remoteChannel.isOpen()) {
+                this.remoteChannel.close();
             }
         }
     }
