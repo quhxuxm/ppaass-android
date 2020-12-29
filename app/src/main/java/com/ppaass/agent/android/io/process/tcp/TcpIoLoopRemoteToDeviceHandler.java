@@ -41,7 +41,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                     .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             tcpIoLoop.getRemoteToDeviceStream());
         }
-        tcpIoLoop.destroy();
+        tcpIoLoop.reset();
     }
 
     @Override
