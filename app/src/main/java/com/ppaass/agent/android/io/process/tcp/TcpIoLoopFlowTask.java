@@ -83,7 +83,7 @@ class TcpIoLoopFlowTask {
                                 this.loop.getDestinationPort(),
                                 this.loop.getSourceAddress(),
                                 this.loop.getSourcePort(),
-                                TcpIoLoop.BASE_TCP_LOOP_SEQUENCE,
+                                this.loop.getBaseSequence(),
                                 inputTcpHeader.getSequenceNumber()
                         );
                         TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
@@ -117,7 +117,7 @@ class TcpIoLoopFlowTask {
                             this.loop.getDestinationPort(),
                             this.loop.getSourceAddress(),
                             this.loop.getSourcePort(),
-                            TcpIoLoop.BASE_TCP_LOOP_SEQUENCE,
+                            this.loop.getBaseSequence(),
                             (inputTcpHeader.getSequenceNumber() + 1),
                             this.loop.getMss()
                     );

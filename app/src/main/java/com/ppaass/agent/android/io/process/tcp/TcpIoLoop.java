@@ -7,8 +7,6 @@ import java.net.InetAddress;
 import java.util.concurrent.ConcurrentMap;
 
 public class TcpIoLoop {
-    public static final int BASE_TCP_LOOP_SEQUENCE = (int) (Math.random() * 100000);
-    private static final int QUEUE_TIMEOUT = 20000;
     private final InetAddress sourceAddress;
     private final InetAddress destinationAddress;
     private final int sourcePort;
@@ -21,6 +19,7 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
+    private final long baseSequence;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -36,6 +35,11 @@ public class TcpIoLoop {
         this.status = TcpIoLoopStatus.CLOSED;
         this.mss = -1;
         this.windowSizeInByte = 0;
+        this.baseSequence = Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
+    }
+
+    public long getBaseSequence() {
+        return baseSequence;
     }
 
     public String getKey() {
