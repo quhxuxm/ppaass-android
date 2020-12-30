@@ -1,5 +1,6 @@
 package com.ppaass.agent.android.io.process.tcp;
 
+import android.util.Log;
 import io.netty.channel.Channel;
 
 import java.io.OutputStream;
@@ -156,6 +157,7 @@ public class TcpIoLoop {
             }
         }
         this.exchangeSemaphore.release();
+        Log.d(TcpIoLoop.class.getName(), "Tcp io loop RESET, tcp loop = " + this);
     }
 
     public synchronized void destroy() {
@@ -171,6 +173,7 @@ public class TcpIoLoop {
             }
         }
         this.exchangeSemaphore.release();
+        Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
     }
 
     @Override

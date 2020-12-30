@@ -15,34 +15,33 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
     public TcpIoLoopRemoteToDeviceHandler() {
     }
 
-    @Override
-    public void channelInactive(ChannelHandlerContext remoteChannelContext) throws Exception {
-        Channel remoteChannel = remoteChannelContext.channel();
-        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
-        if (tcpIoLoop.getStatus() != TcpIoLoopStatus.ESTABLISHED) {
-            Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
-                    "Remote channel closed, and tcp loop also NOT in ESTABLISHED, nothing to do, tcp loop =" +
-                            tcpIoLoop);
-            return;
-        }
-        tcpIoLoop.getExchangeSemaphore().acquire();
-        tcpIoLoop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
-        Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
-                "Remote connection closed, but tcp loop still in ESTABLISHED, close the tcp loop, tcp loop=" +
-                        tcpIoLoop);
-        IpPacket ipPacketWroteToDevice =
-                TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFin(
-                        tcpIoLoop.getDestinationAddress(),
-                        tcpIoLoop.getDestinationPort(),
-                        tcpIoLoop.getSourceAddress(),
-                        tcpIoLoop.getSourcePort(),
-                        tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
-                        tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
-        TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
-                        tcpIoLoop.getRemoteToDeviceStream());
-        tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
-    }
+//    @Override
+//    public void channelInactive(ChannelHandlerContext remoteChannelContext) throws Exception {
+//        Channel remoteChannel = remoteChannelContext.channel();
+//        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
+//        if (tcpIoLoop.getStatus() != TcpIoLoopStatus.ESTABLISHED) {
+//            Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
+//                    "Remote channel closed, and tcp loop also NOT in ESTABLISHED, nothing to do, tcp loop =" +
+//                            tcpIoLoop);
+//            return;
+//        }
+//        tcpIoLoop.getExchangeSemaphore().acquire();
+//        Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
+//                "Remote connection closed, but tcp loop still in ESTABLISHED, close the tcp loop, tcp loop=" +
+//                        tcpIoLoop);
+//        IpPacket ipPacketWroteToDevice =
+//                TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFin(
+//                        tcpIoLoop.getDestinationAddress(),
+//                        tcpIoLoop.getDestinationPort(),
+//                        tcpIoLoop.getSourceAddress(),
+//                        tcpIoLoop.getSourcePort(),
+//                        tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
+//                        tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
+//        TcpIoLoopRemoteToDeviceWriter.INSTANCE
+//                .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
+//                        tcpIoLoop.getRemoteToDeviceStream());
+//        tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
+//    }
 
     @Override
     public void channelRead(ChannelHandlerContext remoteChannelContext, Object remoteMessage)
