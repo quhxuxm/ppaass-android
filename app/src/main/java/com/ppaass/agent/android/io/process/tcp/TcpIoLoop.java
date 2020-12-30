@@ -1,10 +1,13 @@
 package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
+import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.channel.Channel;
 
 import java.io.OutputStream;
 import java.net.InetAddress;
+import java.util.ArrayDeque;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Semaphore;
 
@@ -25,6 +28,7 @@ public class TcpIoLoop {
     private long accumulateRemoteToDeviceAcknowledgementNumber;
     private long accumulateRemoteToDeviceSequenceNumber;
     private final Semaphore exchangeSemaphore;
+    private final Queue<IpPacket> window;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -44,6 +48,7 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
         this.initializeStarted = false;
         this.exchangeSemaphore = new Semaphore(1);
+        this.window = new ArrayDeque<>();
     }
 
     private long generateRandomNumber() {
@@ -144,6 +149,10 @@ public class TcpIoLoop {
         return exchangeSemaphore;
     }
 
+    public Queue<IpPacket> getWindow() {
+        return window;
+    }
+
     public synchronized void reset() {
         this.status = TcpIoLoopStatus.LISTEN;
         this.initializeStarted = false;
@@ -151,6 +160,7 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
         this.mss = 0;
         this.windowSizeInByte = 0;
+        this.window.clear();
         if (this.remoteChannel != null) {
             if (this.remoteChannel.isOpen()) {
                 this.remoteChannel.close();
@@ -167,6 +177,7 @@ public class TcpIoLoop {
         this.windowSizeInByte = 0;
         this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
         this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
+        this.window.clear();
         if (this.remoteChannel != null) {
             if (this.remoteChannel.isOpen()) {
                 this.remoteChannel.close();

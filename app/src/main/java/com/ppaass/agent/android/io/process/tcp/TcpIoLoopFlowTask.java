@@ -219,11 +219,44 @@ class TcpIoLoopFlowTask {
     private void doPsh(TcpHeader inputTcpHeader, byte[] data) {
         //Psh ack
         if (data == null) {
-            this.loop.getExchangeSemaphore().release();
+            IpPacket ipPacketInWindow = this.loop.getWindow().peek();
+            if (ipPacketInWindow == null) {
+                Log.d(TcpIoLoopFlowTask.class.getName(),
+                        "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, no element in window, tcp header =" +
+                                inputTcpHeader +
+                                ", tcp loop = " + this.loop);
+                this.loop.getExchangeSemaphore().release();
+                return;
+            }
+            TcpPacket tcpPacketInWindow = (TcpPacket) ipPacketInWindow.getData();
+            long tcpPacketInWindowSequence = tcpPacketInWindow.getHeader().getSequenceNumber();
+            if (inputTcpHeader.getAcknowledgementNumber() == tcpPacketInWindowSequence) {
+                this.loop.getWindow().poll();
+                Log.d(TcpIoLoopFlowTask.class.getName(),
+                        "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, element in window confirmed, tcp header =" +
+                                inputTcpHeader +
+                                ", tcp loop = " + this.loop);
+                this.loop.getExchangeSemaphore().release();
+                return;
+            }
             Log.d(TcpIoLoopFlowTask.class.getName(),
-                    "RECEIVE [PSH ACK WITHOUT DATA(size=0)], No data to remote ack to device, tcp header =" +
+                    "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, element in window CANNOT confirmed, tcp header =" +
                             inputTcpHeader +
                             ", tcp loop = " + this.loop);
+            IpPacket ipPacketInWindowToReSend = this.loop.getWindow().peek();
+            while (ipPacketInWindowToReSend != null) {
+                TcpPacket tcpPacketInWindowToReSend = (TcpPacket) ipPacketInWindowToReSend.getData();
+                if (inputTcpHeader.getAcknowledgementNumber() ==
+                        tcpPacketInWindowToReSend.getHeader().getSequenceNumber()) {
+                    break;
+                }
+                TcpIoLoopRemoteToDeviceWriter.INSTANCE
+                        .writeIpPacketToDevice(ipPacketInWindowToReSend, this.loop.getKey(),
+                                this.loop.getRemoteToDeviceStream());
+                this.loop.getWindow().poll();
+                ipPacketInWindowToReSend = this.loop.getWindow().peek();
+            }
+            this.loop.getExchangeSemaphore().release();
             return;
         }
         ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
@@ -271,11 +304,44 @@ class TcpIoLoopFlowTask {
         }
         if (TcpIoLoopStatus.ESTABLISHED == this.loop.getStatus()) {
             if (data == null) {
-                this.loop.getExchangeSemaphore().release();
+                IpPacket ipPacketInWindow = this.loop.getWindow().peek();
+                if (ipPacketInWindow == null) {
+                    Log.d(TcpIoLoopFlowTask.class.getName(),
+                            "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, no element in window, tcp header =" +
+                                    inputTcpHeader +
+                                    ", tcp loop = " + this.loop);
+                    this.loop.getExchangeSemaphore().release();
+                    return;
+                }
+                TcpPacket tcpPacketInWindow = (TcpPacket) ipPacketInWindow.getData();
+                long tcpPacketInWindowSequence = tcpPacketInWindow.getHeader().getSequenceNumber();
+                if (inputTcpHeader.getAcknowledgementNumber() == tcpPacketInWindowSequence) {
+                    this.loop.getWindow().poll();
+                    Log.d(TcpIoLoopFlowTask.class.getName(),
+                            "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, element in window confirmed, tcp header =" +
+                                    inputTcpHeader +
+                                    ", tcp loop = " + this.loop);
+                    this.loop.getExchangeSemaphore().release();
+                    return;
+                }
                 Log.d(TcpIoLoopFlowTask.class.getName(),
-                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, tcp header =" +
+                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, element in window CANNOT confirmed, tcp header =" +
                                 inputTcpHeader +
                                 ", tcp loop = " + this.loop);
+                IpPacket ipPacketInWindowToReSend = this.loop.getWindow().peek();
+                while (ipPacketInWindowToReSend != null) {
+                    TcpPacket tcpPacketInWindowToReSend = (TcpPacket) ipPacketInWindowToReSend.getData();
+                    if (inputTcpHeader.getAcknowledgementNumber() ==
+                            tcpPacketInWindowToReSend.getHeader().getSequenceNumber()) {
+                        break;
+                    }
+                    TcpIoLoopRemoteToDeviceWriter.INSTANCE
+                            .writeIpPacketToDevice(ipPacketInWindowToReSend, this.loop.getKey(),
+                                    this.loop.getRemoteToDeviceStream());
+                    this.loop.getWindow().poll();
+                    ipPacketInWindowToReSend = this.loop.getWindow().peek();
+                }
+                this.loop.getExchangeSemaphore().release();
                 return;
             }
             if (this.loop.getRemoteChannel() == null || !this.loop.getRemoteChannel().isOpen()) {
