@@ -6,6 +6,7 @@ public enum TcpIoLoopStatus {
     SYN_SENT,
     ESTABLISHED,
     CLOSE_WAIT,
+    CLOSING,
     LAST_ACK,
     CLOSED,
     FIN_WAITE1,

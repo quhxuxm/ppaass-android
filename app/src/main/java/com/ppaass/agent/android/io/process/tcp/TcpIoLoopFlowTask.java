@@ -18,7 +18,8 @@ import java.util.concurrent.locks.ReentrantLock;
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_LOOP;
 
 class TcpIoLoopFlowTask {
-    private static final int DEFAULT_2MSL_TIME = 2;
+    private static final int DEFAULT_2MSL_TIME = 120;
+    private static final int DEFAULT_DELAY_TIME = 20;
     private final TcpIoLoop loop;
     private final Bootstrap remoteBootstrap;
     private final ScheduledExecutorService twoMslTimerExecutor;
@@ -58,7 +59,7 @@ class TcpIoLoopFlowTask {
             }
             this.loopInitializeLock.lock();
             try {
-                if (inputTcpHeader.isPsh()) {
+                if (inputTcpHeader.isPsh() && inputTcpHeader.isAck()) {
                     byte[] inputData = inputTcpPacket.getData();
                     if (inputData != null && inputData.length == 0) {
                         inputData = null;
@@ -90,7 +91,7 @@ class TcpIoLoopFlowTask {
     }
 
     private void doSyn(TcpHeader inputTcpHeader) {
-        this.loop.setBaseDeviceSequence(inputTcpHeader.getSequenceNumber());
+        this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(inputTcpHeader.getSequenceNumber());
         if (this.loop.isInitializeStarted()) {
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [SYN ACK], duplicate SYN, tcp header = " +
@@ -98,19 +99,21 @@ class TcpIoLoopFlowTask {
                             ", tcp loop = " + this.loop);
             this.loopInitializeLock.lock();
             if (this.loop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
+                this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
                 IpPacket resetPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRstAck(
                         this.loop.getDestinationAddress(),
                         this.loop.getDestinationPort(),
                         this.loop.getSourceAddress(),
                         this.loop.getSourcePort(),
-                        this.loop.getBaseRemoteSequence(),
-                        (this.loop.getBaseDeviceSequence() + 1)
+                        this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                        this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber()
                 );
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                         this.loop.getRemoteToDeviceStream());
                 this.loopInitializeLock.unlock();
                 return;
             }
+            this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
             TcpHeaderOption mssOption = null;
             for (TcpHeaderOption option : inputTcpHeader.getOptions()) {
                 if (option.getKind() == TcpHeaderOption.Kind.MSS) {
@@ -128,17 +131,19 @@ class TcpIoLoopFlowTask {
                     "RECEIVE [SYN], initializing connection SUCCESS, switch tcp loop to SYN_RECIVED, tcp header = " +
                             inputTcpHeader +
                             ", tcp loop = " + this.loop);
+//            this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
             IpPacket synAckPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildSynAck(
                     this.loop.getDestinationAddress(),
                     this.loop.getDestinationPort(),
                     this.loop.getSourceAddress(),
                     this.loop.getSourcePort(),
-                    this.loop.getBaseRemoteSequence(),
-                    (this.loop.getBaseDeviceSequence() + 1),
+                    this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                    this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber(),
                     this.loop.getMss()
             );
             TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(synAckPacket, this.loop.getKey(),
                     this.loop.getRemoteToDeviceStream());
+            this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
             this.loop.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
             this.loopInitializeLock.unlock();
             return;
@@ -160,8 +165,8 @@ class TcpIoLoopFlowTask {
                                 this.loop.getDestinationPort(),
                                 this.loop.getSourceAddress(),
                                 this.loop.getSourcePort(),
-                                this.loop.getBaseRemoteSequence(),
-                                inputTcpHeader.getSequenceNumber()
+                                this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                                this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber()
                         );
                         TcpIoLoopRemoteToDeviceWriter.INSTANCE
                                 .writeIpPacketToDevice(resetPacket, this.loop.getKey(),
@@ -170,6 +175,7 @@ class TcpIoLoopFlowTask {
                         this.loopInitializeLock.unlock();
                         return;
                     }
+                    this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
                     this.loop.setRemoteChannel(connectResultFuture.channel());
                     this.loop.getRemoteChannel().attr(TCP_LOOP).setIfAbsent(this.loop);
                     TcpHeaderOption mssOption = null;
@@ -191,18 +197,20 @@ class TcpIoLoopFlowTask {
                                     inputTcpHeader +
                                     ", tcp loop = " + this.loop);
                     if (this.loop.getStatus() == TcpIoLoopStatus.LISTEN) {
+//                        this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
                         IpPacket synAckPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildSynAck(
                                 this.loop.getDestinationAddress(),
                                 this.loop.getDestinationPort(),
                                 this.loop.getSourceAddress(),
                                 this.loop.getSourcePort(),
-                                this.loop.getBaseRemoteSequence(),
-                                (this.loop.getBaseDeviceSequence() + 1),
+                                this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                                this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber(),
                                 this.loop.getMss()
                         );
                         TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(synAckPacket, this.loop.getKey(),
                                 this.loop.getRemoteToDeviceStream());
                     }
+                    this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
                     this.loop.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
                     this.loopInitializeLock.unlock();
                 });
@@ -211,6 +219,7 @@ class TcpIoLoopFlowTask {
     private void doPsh(TcpHeader inputTcpHeader, byte[] data) {
         //Psh ack
         if (data == null) {
+            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [PSH ACK WITHOUT DATA(size=0)], No data to remote ack to device, tcp header =" +
                             inputTcpHeader +
@@ -218,32 +227,36 @@ class TcpIoLoopFlowTask {
             return;
         }
         ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
-        Log.d(TcpIoLoopFlowTask.class.getName(),
-                "RECEIVE [PSH ACK WITH DATA(size=" + data.length +
-                        ")], write data to remote, tcp header =" +
-                        inputTcpHeader +
-                        ", tcp loop = " + this.loop + ", DATA: \n" +
-                        ByteBufUtil.prettyHexDump(pshDataByteBuf));
+        if (inputTcpHeader.isFin()) {
+            Log.d(TcpIoLoopFlowTask.class.getName(),
+                    "RECEIVE [PSH FIN ACK WITH DATA(size=" + data.length +
+                            ")], write data to remote, tcp header =" +
+                            inputTcpHeader +
+                            ", tcp loop = " + this.loop + ", DATA: \n" +
+                            ByteBufUtil.prettyHexDump(pshDataByteBuf));
+        } else {
+            Log.d(TcpIoLoopFlowTask.class.getName(),
+                    "RECEIVE [PSH ACK WITH DATA(size=" + data.length +
+                            ")], write data to remote, tcp header =" +
+                            inputTcpHeader +
+                            ", tcp loop = " + this.loop + ", DATA: \n" +
+                            ByteBufUtil.prettyHexDump(pshDataByteBuf));
+        }
         if (this.loop.getRemoteChannel() == null) {
             IpPacket resetPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRstAck(
                     this.loop.getDestinationAddress(),
                     this.loop.getDestinationPort(),
                     this.loop.getSourceAddress(),
                     this.loop.getSourcePort(),
-                    inputTcpHeader.getAcknowledgementNumber(),
-                    inputTcpHeader.getSequenceNumber()
+                    this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                    this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber()
             );
             TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                     this.loop.getRemoteToDeviceStream());
             this.makeTcpIoLoopReset();
             return;
         }
-        this.loop.getRemoteChannel().attr(ITcpIoLoopConstant.DEVICE_INPUT_SEQUENCE_NUMBER)
-                .set(inputTcpHeader.getSequenceNumber());
-        this.loop.getRemoteChannel().attr(ITcpIoLoopConstant.DEVICE_INPUT_ACKNOWLEDGEMENT_NUMBER)
-                .set(inputTcpHeader.getAcknowledgementNumber());
-        this.loop.getRemoteChannel().attr(ITcpIoLoopConstant.DEVICE_INPUT_DATA_LENGTH)
-                .set(data.length);
+        this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(data.length);
         this.loop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
     }
 
@@ -258,6 +271,7 @@ class TcpIoLoopFlowTask {
         }
         if (TcpIoLoopStatus.ESTABLISHED == this.loop.getStatus()) {
             if (data == null) {
+                this.loop.getExchangeSemaphore().release();
                 Log.d(TcpIoLoopFlowTask.class.getName(),
                         "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No data to remote ack to device, tcp header =" +
                                 inputTcpHeader +
@@ -275,8 +289,8 @@ class TcpIoLoopFlowTask {
                         this.loop.getDestinationPort(),
                         this.loop.getSourceAddress(),
                         this.loop.getSourcePort(),
-                        inputTcpHeader.getAcknowledgementNumber(),
-                        inputTcpHeader.getSequenceNumber() + data.length
+                        this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                        this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber()
                 );
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE
                         .writeIpPacketToDevice(rstAckPacket, this.loop.getKey(), this.loop.getRemoteToDeviceStream());
@@ -295,52 +309,67 @@ class TcpIoLoopFlowTask {
                         this.loop.getDestinationPort(),
                         this.loop.getSourceAddress(),
                         this.loop.getSourcePort(),
-                        inputTcpHeader.getAcknowledgementNumber(),
-                        inputTcpHeader.getSequenceNumber()
+                        this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                        this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber()
                 );
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                         this.loop.getRemoteToDeviceStream());
                 this.makeTcpIoLoopReset();
                 return;
             }
-            this.loop.getRemoteChannel().attr(ITcpIoLoopConstant.DEVICE_INPUT_SEQUENCE_NUMBER)
-                    .set(inputTcpHeader.getSequenceNumber());
-            this.loop.getRemoteChannel().attr(ITcpIoLoopConstant.DEVICE_INPUT_ACKNOWLEDGEMENT_NUMBER)
-                    .set(inputTcpHeader.getAcknowledgementNumber());
-            this.loop.getRemoteChannel().attr(ITcpIoLoopConstant.DEVICE_INPUT_DATA_LENGTH)
-                    .set(data.length);
+            this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(data.length);
             this.loop.getRemoteChannel().writeAndFlush(pshDataByteBuf);
             return;
         }
-        if (TcpIoLoopStatus.FIN_WAITE1 == this.loop.getStatus()) {
-            Log.d(TcpIoLoopFlowTask.class.getName(),
-                    "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
-                            + inputTcpHeader + " tcp loop = " + this.loop);
-            this.loop.setStatus(TcpIoLoopStatus.FIN_WAITE2);
-            this.loop.destroy();
-            return;
-        }
         if (TcpIoLoopStatus.LAST_ACK == this.loop.getStatus()) {
+            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [ACK(status=LAST_ACK)], close tcp loop, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
-            this.loop.destroy();
+            this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
+            this.delayDestroyTcpIoLoop(DEFAULT_2MSL_TIME);
+            return;
+        }
+        if (TcpIoLoopStatus.CLOSING == this.loop.getStatus()) {
+            this.loop.getExchangeSemaphore().release();
+            Log.d(TcpIoLoopFlowTask.class.getName(),
+                    "RECEIVE [ACK(status=CLOSING)], switch tcp loop status to TIME_WAITE, tcp header ="
+                            + inputTcpHeader + " tcp loop = " + this.loop);
+            this.loop.setStatus(TcpIoLoopStatus.TIME_WAITE);
+            this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
+            timeWaiteTcpIoLoop(() -> {
+                Log.d(TcpIoLoopFlowTask.class.getName(),
+                        "2MSL TIMER [ACK(status=TIME_WAITE)], send ack and stop tcp loop, send ack, tcp header ="
+                                + inputTcpHeader + " tcp loop = " + TcpIoLoopFlowTask.this.loop);
+                IpPacket ackPacket =
+                        TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildAck(
+                                TcpIoLoopFlowTask.this.loop.getDestinationAddress(),
+                                TcpIoLoopFlowTask.this.loop.getDestinationPort(),
+                                TcpIoLoopFlowTask.this.loop.getSourceAddress(),
+                                TcpIoLoopFlowTask.this.loop.getSourcePort(),
+                                this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                                this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber(),
+                                null);
+                TcpIoLoopRemoteToDeviceWriter.INSTANCE
+                        .writeIpPacketToDevice(ackPacket, TcpIoLoopFlowTask.this.loop.getKey(),
+                                TcpIoLoopFlowTask.this.loop.getRemoteToDeviceStream());
+                this.loop.destroy();
+            });
+            return;
+        }
+        if (TcpIoLoopStatus.FIN_WAITE1 == this.loop.getStatus()) {
+            this.loop.getExchangeSemaphore().release();
+            Log.d(TcpIoLoopFlowTask.class.getName(),
+                    "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
+                            + inputTcpHeader + " tcp loop = " + this.loop);
+            this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
+            this.loop.setStatus(TcpIoLoopStatus.FIN_WAITE2);
             return;
         }
         Log.e(TcpIoLoopFlowTask.class.getName(),
-                "RECEIVE [ACK], Tcp loop in illegal state, ignore current packet, tcp header ="
+                "RECEIVE [ACK(status=" + this.loop.getStatus() + ", size=" + (data == null ? 0 : data.length) +
+                        ")], Tcp loop in illegal state, ignore current packet do nothing, tcp header ="
                         + inputTcpHeader + " tcp loop = " + this.loop);
-        IpPacket resetPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRstAck(
-                this.loop.getDestinationAddress(),
-                this.loop.getDestinationPort(),
-                this.loop.getSourceAddress(),
-                this.loop.getSourcePort(),
-                inputTcpHeader.getAcknowledgementNumber(),
-                inputTcpHeader.getSequenceNumber()
-        );
-        TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
-                this.loop.getRemoteToDeviceStream());
-        this.makeTcpIoLoopReset();
     }
 
     private void makeTcpIoLoopReset() {
@@ -353,7 +382,17 @@ class TcpIoLoopFlowTask {
             this.twoMslTimerExecutor.schedule(() -> {
                 doSomeThing.run();
                 loop.destroy();
-            }, DEFAULT_2MSL_TIME, TimeUnit.MINUTES);
+            }, DEFAULT_2MSL_TIME, TimeUnit.SECONDS);
+        }
+    }
+
+    private void delayDestroyTcpIoLoop(Integer delayTime) {
+        Integer delay = delayTime;
+        if(delay==null){
+            delay=DEFAULT_DELAY_TIME;
+        }
+        synchronized (this.loop) {
+            this.twoMslTimerExecutor.schedule(loop::destroy, delay, TimeUnit.SECONDS);
         }
     }
 
@@ -366,7 +405,8 @@ class TcpIoLoopFlowTask {
     }
 
     private void doFin(TcpHeader inputTcpHeader) {
-        if (TcpIoLoopStatus.ESTABLISHED == this.loop.getStatus()) {
+        if (TcpIoLoopStatus.ESTABLISHED == this.loop.getStatus() && inputTcpHeader.isAck()) {
+            this.loop.getExchangeSemaphore().release();
             this.loop.setStatus(TcpIoLoopStatus.CLOSE_WAIT);
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [FIN(status=ESTABLISHED, STEP1)], switch tcp loop status to CLOSE_WAIT, tcp header =" +
@@ -375,58 +415,59 @@ class TcpIoLoopFlowTask {
             this.loop.getRemoteChannel().flush();
             this.loop.getRemoteChannel().close().addListener(future -> {
                 synchronized (this.loop) {
+                    this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
                     IpPacket ackIpPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildAck(
                             this.loop.getDestinationAddress(),
                             this.loop.getDestinationPort(),
                             this.loop.getSourceAddress(),
                             this.loop.getSourcePort(),
-                            inputTcpHeader.getAcknowledgementNumber(),
-                            inputTcpHeader.getSequenceNumber() + 1,
+                            this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                            this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber(),
                             null);
                     TcpIoLoopRemoteToDeviceWriter.INSTANCE
                             .writeIpPacketToDevice(ackIpPacket, this.loop.getKey(),
                                     this.loop.getRemoteToDeviceStream());
-                    this.loop.setStatus(TcpIoLoopStatus.LAST_ACK);
-                    IpPacket finPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFin(
+                    IpPacket finIpPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFin(
                             this.loop.getDestinationAddress(),
                             this.loop.getDestinationPort(),
                             this.loop.getSourceAddress(),
                             this.loop.getSourcePort(),
-                            inputTcpHeader.getAcknowledgementNumber(),
-                            inputTcpHeader.getSequenceNumber() + 1
-                    );
+                            this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                            this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber());
                     TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                            .writeIpPacketToDevice(finPacket, this.loop.getKey(), this.loop.getRemoteToDeviceStream());
+                            .writeIpPacketToDevice(finIpPacket, this.loop.getKey(),
+                                    this.loop.getRemoteToDeviceStream());
+                    this.loop.setStatus(TcpIoLoopStatus.LAST_ACK);
                     Log.d(TcpIoLoopFlowTask.class.getName(),
                             "RECEIVE [FIN(status=ESTABLISHED, STEP2)], switch tcp loop status to LAST_ACK, tcp header =" +
                                     inputTcpHeader +
                                     ", tcp loop = " + this.loop);
+                    this.delayDestroyTcpIoLoop(DEFAULT_2MSL_TIME);
                 }
             });
             return;
         }
-        if (TcpIoLoopStatus.FIN_WAITE1 == this.loop.getStatus()) {
-            if (inputTcpHeader.isAck()) {
-                Log.d(TcpIoLoopFlowTask.class.getName(),
-                        "RECEIVE [FIN ACK(status=FIN_WAITE1)], close tcp loop, tcp header ="
-                                + inputTcpHeader + " tcp loop = " + this.loop);
-                this.loop.setStatus(TcpIoLoopStatus.TIME_WAITE);
-                this.loop.destroy();
-                return;
-            } else {
-                Log.d(TcpIoLoopFlowTask.class.getName(),
-                        "RECEIVE [FIN(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, send ack, tcp header ="
-                                + inputTcpHeader + " tcp loop = " + this.loop);
-            }
-            this.loop.setStatus(TcpIoLoopStatus.FIN_WAITE2);
+        if (TcpIoLoopStatus.CLOSE_WAIT == this.loop.getStatus()) {
+            this.loop.getExchangeSemaphore().release();
+            this.loop.setStatus(TcpIoLoopStatus.CLOSED);
+            this.delayDestroyTcpIoLoop(null);
             return;
         }
-        if (TcpIoLoopStatus.FIN_WAITE2 == this.loop.getStatus()) {
+        if (TcpIoLoopStatus.FIN_WAITE1 == this.loop.getStatus() && inputTcpHeader.isAck()) {
+            this.loop.getExchangeSemaphore().release();
+            Log.d(TcpIoLoopFlowTask.class.getName(),
+                    "RECEIVE [FIN ACK(status=FIN_WAITE1)], switch tcp loop status to CLOSING, tcp header ="
+                            + inputTcpHeader + " tcp loop = " + this.loop);
+            this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
+            this.loop.setStatus(TcpIoLoopStatus.CLOSING);
+            return;
+        }
+        if (TcpIoLoopStatus.FIN_WAITE2 == this.loop.getStatus() && inputTcpHeader.isAck()) {
+            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [FIN(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
-            long ackIn2MslTimer = inputTcpHeader.getSequenceNumber() + 1;
-            long seqIn2MslTimer = inputTcpHeader.getAcknowledgementNumber();
+            this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
             timeWaiteTcpIoLoop(() -> {
                 Log.d(TcpIoLoopFlowTask.class.getName(),
                         "2MSL TIMER [ACK(status=TIME_WAITE)], send ack and stop tcp loop, send ack, tcp header ="
@@ -437,28 +478,19 @@ class TcpIoLoopFlowTask {
                                 TcpIoLoopFlowTask.this.loop.getDestinationPort(),
                                 TcpIoLoopFlowTask.this.loop.getSourceAddress(),
                                 TcpIoLoopFlowTask.this.loop.getSourcePort(),
-                                seqIn2MslTimer,
-                                ackIn2MslTimer,
+                                this.loop.getAccumulateRemoteToDeviceSequenceNumber(),
+                                this.loop.getAccumulateRemoteToDeviceAcknowledgementNumber(),
                                 null);
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE
                         .writeIpPacketToDevice(ackPacket, TcpIoLoopFlowTask.this.loop.getKey(),
                                 TcpIoLoopFlowTask.this.loop.getRemoteToDeviceStream());
+                this.loop.destroy();
             });
             return;
         }
         Log.e(TcpIoLoopFlowTask.class.getName(),
-                "RECEIVE [FIN] Tcp loop in illegal state, send RST back to device, tcp header ="
+                "RECEIVE [FIN(status=" + this.loop.getStatus() +
+                        ")], Tcp loop in illegal state, ignore current packet do nothing, tcp header ="
                         + inputTcpHeader + " tcp loop = " + this.loop);
-        IpPacket rstAckPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRstAck(
-                TcpIoLoopFlowTask.this.loop.getDestinationAddress(),
-                TcpIoLoopFlowTask.this.loop.getDestinationPort(),
-                TcpIoLoopFlowTask.this.loop.getSourceAddress(),
-                TcpIoLoopFlowTask.this.loop.getSourcePort(),
-                inputTcpHeader.getAcknowledgementNumber(),
-                inputTcpHeader.getSequenceNumber()
-        );
-        TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                .writeIpPacketToDevice(rstAckPacket, this.loop.getKey(), this.loop.getRemoteToDeviceStream());
-        this.makeTcpIoLoopReset();
     }
 }

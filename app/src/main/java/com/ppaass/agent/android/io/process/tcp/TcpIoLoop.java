@@ -5,6 +5,7 @@ import io.netty.channel.Channel;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Semaphore;
 
 public class TcpIoLoop {
     private final InetAddress sourceAddress;
@@ -19,9 +20,10 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
-    private final long baseRemoteSequence;
-    private long baseDeviceSequence;
     private boolean initializeStarted;
+    private long accumulateRemoteToDeviceAcknowledgementNumber;
+    private long accumulateRemoteToDeviceSequenceNumber;
+    private final Semaphore exchangeSemaphore;
 
     public TcpIoLoop(String key, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -37,8 +39,14 @@ public class TcpIoLoop {
         this.status = TcpIoLoopStatus.CLOSED;
         this.mss = -1;
         this.windowSizeInByte = 0;
-        this.baseRemoteSequence = Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
+        this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
+        this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
         this.initializeStarted = false;
+        this.exchangeSemaphore = new Semaphore(1);
+    }
+
+    private long generateRandomNumber() {
+        return Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
     }
 
     public synchronized void markInitializeStarted() {
@@ -47,18 +55,6 @@ public class TcpIoLoop {
 
     public synchronized boolean isInitializeStarted() {
         return initializeStarted;
-    }
-
-    public long getBaseRemoteSequence() {
-        return baseRemoteSequence;
-    }
-
-    public synchronized void setBaseDeviceSequence(long baseDeviceSequence) {
-        this.baseDeviceSequence = baseDeviceSequence;
-    }
-
-    public synchronized long getBaseDeviceSequence() {
-        return baseDeviceSequence;
     }
 
     public String getKey() {
@@ -125,19 +121,33 @@ public class TcpIoLoop {
         this.flowTask = flowTask;
     }
 
+    public synchronized long getAccumulateRemoteToDeviceAcknowledgementNumber() {
+        return accumulateRemoteToDeviceAcknowledgementNumber;
+    }
+
+    public synchronized void increaseAccumulateRemoteToDeviceAcknowledgementNumber(
+            long accumulateRemoteToDeviceAcknowledgementNumber) {
+        this.accumulateRemoteToDeviceAcknowledgementNumber += accumulateRemoteToDeviceAcknowledgementNumber;
+    }
+
+    public synchronized long getAccumulateRemoteToDeviceSequenceNumber() {
+        return accumulateRemoteToDeviceSequenceNumber;
+    }
+
+    public synchronized void increaseAccumulateRemoteToDeviceSequenceNumber(
+            long accumulateRemoteToDeviceSequenceNumber) {
+        this.accumulateRemoteToDeviceSequenceNumber += accumulateRemoteToDeviceSequenceNumber;
+    }
+
+    public Semaphore getExchangeSemaphore() {
+        return exchangeSemaphore;
+    }
+
     public synchronized void reset() {
         this.status = TcpIoLoopStatus.LISTEN;
         this.initializeStarted = false;
-        if (this.remoteChannel != null) {
-            if (this.remoteChannel.isOpen()) {
-                this.remoteChannel.close();
-            }
-        }
-    }
-
-    public synchronized void destroy() {
-        this.container.remove(this.getKey());
-        this.status = TcpIoLoopStatus.CLOSED;
+        this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
+        this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
         this.mss = 0;
         this.windowSizeInByte = 0;
         if (this.remoteChannel != null) {
@@ -145,6 +155,22 @@ public class TcpIoLoop {
                 this.remoteChannel.close();
             }
         }
+        this.exchangeSemaphore.release();
+    }
+
+    public synchronized void destroy() {
+        this.container.remove(this.getKey());
+        this.status = TcpIoLoopStatus.CLOSED;
+        this.mss = 0;
+        this.windowSizeInByte = 0;
+        this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
+        this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
+        if (this.remoteChannel != null) {
+            if (this.remoteChannel.isOpen()) {
+                this.remoteChannel.close();
+            }
+        }
+        this.exchangeSemaphore.release();
     }
 
     @Override
