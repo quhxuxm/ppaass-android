@@ -229,7 +229,8 @@ class TcpIoLoopFlowTask {
                 return;
             }
             TcpPacket tcpPacketInWindow = (TcpPacket) ipPacketInWindow.getData();
-            long tcpPacketInWindowSequence = tcpPacketInWindow.getHeader().getSequenceNumber();
+            long tcpPacketInWindowSequence =
+                    tcpPacketInWindow.getHeader().getSequenceNumber() + tcpPacketInWindow.getData().length;
             if (inputTcpHeader.getAcknowledgementNumber() == tcpPacketInWindowSequence) {
                 this.loop.getWindow().poll();
                 Log.d(TcpIoLoopFlowTask.class.getName(),
@@ -247,7 +248,8 @@ class TcpIoLoopFlowTask {
             while (ipPacketInWindowToReSend != null) {
                 TcpPacket tcpPacketInWindowToReSend = (TcpPacket) ipPacketInWindowToReSend.getData();
                 if (inputTcpHeader.getAcknowledgementNumber() ==
-                        tcpPacketInWindowToReSend.getHeader().getSequenceNumber()) {
+                        tcpPacketInWindowToReSend.getHeader().getSequenceNumber() +
+                                tcpPacketInWindow.getData().length) {
                     break;
                 }
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE
@@ -314,7 +316,8 @@ class TcpIoLoopFlowTask {
                     return;
                 }
                 TcpPacket tcpPacketInWindow = (TcpPacket) ipPacketInWindow.getData();
-                long tcpPacketInWindowSequence = tcpPacketInWindow.getHeader().getSequenceNumber();
+                long tcpPacketInWindowSequence =
+                        tcpPacketInWindow.getHeader().getSequenceNumber() + tcpPacketInWindow.getData().length;
                 if (inputTcpHeader.getAcknowledgementNumber() == tcpPacketInWindowSequence) {
                     this.loop.getWindow().poll();
                     Log.d(TcpIoLoopFlowTask.class.getName(),
@@ -332,7 +335,8 @@ class TcpIoLoopFlowTask {
                 while (ipPacketInWindowToReSend != null) {
                     TcpPacket tcpPacketInWindowToReSend = (TcpPacket) ipPacketInWindowToReSend.getData();
                     if (inputTcpHeader.getAcknowledgementNumber() ==
-                            tcpPacketInWindowToReSend.getHeader().getSequenceNumber()) {
+                            tcpPacketInWindowToReSend.getHeader().getSequenceNumber() +
+                                    tcpPacketInWindow.getData().length) {
                         break;
                     }
                     TcpIoLoopRemoteToDeviceWriter.INSTANCE
