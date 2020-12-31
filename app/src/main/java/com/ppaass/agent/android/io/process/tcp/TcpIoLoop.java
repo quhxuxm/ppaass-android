@@ -9,7 +9,8 @@ import java.net.InetAddress;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class TcpIoLoop {
     private long updateTime;
@@ -24,9 +25,9 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final OutputStream remoteToDeviceStream;
     private TcpIoLoopFlowTask flowTask;
-    private boolean initializeStarted;
-    private long accumulateRemoteToDeviceAcknowledgementNumber;
-    private long accumulateRemoteToDeviceSequenceNumber;
+    private AtomicBoolean initializeStarted;
+    private AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
+    private AtomicLong accumulateRemoteToDeviceSequenceNumber;
     private final Queue<IpPacket> deviceInputQueue;
 
     public TcpIoLoop(String key, long updateTime, InetAddress sourceAddress, InetAddress destinationAddress,
@@ -43,9 +44,9 @@ public class TcpIoLoop {
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.status = TcpIoLoopStatus.CLOSED;
         this.mss = -1;
-        this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
-        this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
-        this.initializeStarted = false;
+        this.accumulateRemoteToDeviceSequenceNumber = new AtomicLong(this.generateRandomNumber());
+        this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
+        this.initializeStarted = new AtomicBoolean(false);
         this.deviceInputQueue = new ConcurrentLinkedQueue<>();
     }
 
@@ -62,11 +63,11 @@ public class TcpIoLoop {
     }
 
     public synchronized void markInitializeStarted() {
-        this.initializeStarted = true;
+        this.initializeStarted.set(true);
     }
 
     public synchronized boolean isInitializeStarted() {
-        return initializeStarted;
+        return initializeStarted.get();
     }
 
     public String getKey() {
@@ -126,24 +127,22 @@ public class TcpIoLoop {
     }
 
     public synchronized long getAccumulateRemoteToDeviceAcknowledgementNumber() {
-        return accumulateRemoteToDeviceAcknowledgementNumber;
+        return accumulateRemoteToDeviceAcknowledgementNumber.get();
     }
 
     public synchronized void increaseAccumulateRemoteToDeviceAcknowledgementNumber(
             long accumulateRemoteToDeviceAcknowledgementNumber) {
-        this.accumulateRemoteToDeviceAcknowledgementNumber += accumulateRemoteToDeviceAcknowledgementNumber;
+        this.accumulateRemoteToDeviceAcknowledgementNumber.addAndGet(accumulateRemoteToDeviceAcknowledgementNumber);
     }
 
     public synchronized long getAccumulateRemoteToDeviceSequenceNumber() {
-        return accumulateRemoteToDeviceSequenceNumber;
+        return accumulateRemoteToDeviceSequenceNumber.get();
     }
 
     public synchronized void increaseAccumulateRemoteToDeviceSequenceNumber(
             long accumulateRemoteToDeviceSequenceNumber) {
-        this.accumulateRemoteToDeviceSequenceNumber += accumulateRemoteToDeviceSequenceNumber;
+        this.accumulateRemoteToDeviceSequenceNumber.addAndGet(accumulateRemoteToDeviceSequenceNumber);
     }
-
-
 
     public Queue<IpPacket> getDeviceInputQueue() {
         return deviceInputQueue;
@@ -151,18 +150,19 @@ public class TcpIoLoop {
 
     public synchronized void reset() {
         this.status = TcpIoLoopStatus.LISTEN;
-        this.initializeStarted = false;
-        this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
-        this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
+        this.initializeStarted.set(false);
+        this.accumulateRemoteToDeviceSequenceNumber = new AtomicLong(this.generateRandomNumber());
+        this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
         this.deviceInputQueue.clear();
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop RESET, tcp loop = " + this);
     }
 
     public synchronized void destroy() {
         this.container.remove(this.getKey());
+        this.initializeStarted.set(false);
         this.status = TcpIoLoopStatus.CLOSED;
-        this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
-        this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
+        this.accumulateRemoteToDeviceSequenceNumber = new AtomicLong(this.generateRandomNumber());
+        this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
         this.deviceInputQueue.clear();
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
     }
@@ -177,9 +177,13 @@ public class TcpIoLoop {
                 ", destinationPort=" + destinationPort +
                 ", status=" + status +
                 ", mss=" + mss +
+                ", initializeStarted=" + initializeStarted +
                 ", remoteChannel =" + (remoteChannel == null ? "" : remoteChannel.id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
                 ", deviceInputQueue = (size:" + deviceInputQueue.size() + ")" +
+                ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
+                ", accumulateRemoteToDeviceAcknowledgementNumber = " +
+                this.accumulateRemoteToDeviceAcknowledgementNumber +
                 '}';
     }
 }

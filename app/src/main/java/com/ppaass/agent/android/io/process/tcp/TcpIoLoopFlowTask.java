@@ -23,7 +23,7 @@ class TcpIoLoopFlowTask implements Runnable {
     private final TcpIoLoop loop;
     private final Bootstrap remoteBootstrap;
     private final ScheduledExecutorService twoMslTimerExecutor;
-    private final ReentrantLock loopInitializeLock;
+
     private boolean alive;
 
     public TcpIoLoopFlowTask(TcpIoLoop loop, Bootstrap remoteBootstrap,
@@ -31,7 +31,7 @@ class TcpIoLoopFlowTask implements Runnable {
         this.loop = loop;
         this.remoteBootstrap = remoteBootstrap;
         this.twoMslTimerExecutor = twoMslTimerExecutor;
-        this.loopInitializeLock = new ReentrantLock();
+
         this.alive = false;
     }
 
@@ -76,8 +76,8 @@ class TcpIoLoopFlowTask implements Runnable {
             doSyn(inputTcpHeader);
             return;
         }
-        this.loopInitializeLock.lock();
-        try {
+
+
             if (inputTcpHeader.isPsh() && inputTcpHeader.isAck()) {
                 byte[] inputData = inputTcpPacket.getData();
                 if (inputData != null && inputData.length == 0) {
@@ -101,11 +101,7 @@ class TcpIoLoopFlowTask implements Runnable {
             if (inputTcpHeader.isRst()) {
                 doRst(inputTcpHeader);
             }
-        } finally {
-            if (this.loopInitializeLock.isLocked()) {
-                this.loopInitializeLock.unlock();
-            }
-        }
+
     }
 
     private void doSyn(TcpHeader inputTcpHeader) {
@@ -115,7 +111,7 @@ class TcpIoLoopFlowTask implements Runnable {
                     "RECEIVE [SYN ACK], duplicate SYN, tcp header = " +
                             inputTcpHeader +
                             ", tcp loop = " + this.loop);
-            this.loopInitializeLock.lock();
+
             if (this.loop.getStatus() == TcpIoLoopStatus.SYN_RECEIVED) {
                 this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
                 IpPacket resetPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRstAck(
@@ -128,7 +124,7 @@ class TcpIoLoopFlowTask implements Runnable {
                 );
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                         this.loop.getRemoteToDeviceStream());
-                this.loopInitializeLock.unlock();
+
                 return;
             }
             this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
@@ -162,7 +158,7 @@ class TcpIoLoopFlowTask implements Runnable {
                     this.loop.getRemoteToDeviceStream());
             this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
             this.loop.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
-            this.loopInitializeLock.unlock();
+
             return;
         }
         Log.v(TcpIoLoopFlowTask.class.getName(),
@@ -172,7 +168,7 @@ class TcpIoLoopFlowTask implements Runnable {
         this.remoteBootstrap
                 .connect(this.loop.getDestinationAddress(), this.loop.getDestinationPort()).addListener(
                 (ChannelFutureListener) connectResultFuture -> {
-                    this.loopInitializeLock.lock();
+
                     if (!connectResultFuture.isSuccess()) {
                         Log.e(TcpIoLoopFlowTask.class.getName(),
                                 "RECEIVE [SYN], initialize connection FAIL ignore the packet, tcp header ="
@@ -189,7 +185,7 @@ class TcpIoLoopFlowTask implements Runnable {
                                 .writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                                         this.loop.getRemoteToDeviceStream());
                         this.makeTcpIoLoopReset();
-                        this.loopInitializeLock.unlock();
+
                         return;
                     }
                     this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
@@ -228,7 +224,7 @@ class TcpIoLoopFlowTask implements Runnable {
                     }
                     this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
                     this.loop.setStatus(TcpIoLoopStatus.SYN_RECEIVED);
-                    this.loopInitializeLock.unlock();
+
                 });
     }
 
