@@ -43,6 +43,8 @@ public class UdpPacketWriter {
         byteBuffer.putShort((short) checksum);
         byteBuffer.put(packet.getData());
         byteBuffer.flip();
-        return byteBuffer.array();
+        byte[] result= byteBuffer.array();
+        byteBuffer.clear();
+        return result;
     }
 }

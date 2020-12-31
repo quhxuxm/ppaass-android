@@ -25,6 +25,7 @@ public class UdpPacketReader {
         if (result.getHeader().getTotalLength() != totalLength) {
             throw new IllegalArgumentException("The total length in the input data do not match.");
         }
+        byteBuffer.clear();
         return result;
     }
 }

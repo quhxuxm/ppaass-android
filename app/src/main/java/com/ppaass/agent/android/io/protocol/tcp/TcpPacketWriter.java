@@ -97,6 +97,8 @@ public class TcpPacketWriter {
         byteBuffer.put(optionAndPaddingBytes);
         byteBuffer.put(packet.getData());
         byteBuffer.flip();
-        return byteBuffer.array();
+        byte[] result= byteBuffer.array();
+        byteBuffer.clear();
+        return result;
     }
 }

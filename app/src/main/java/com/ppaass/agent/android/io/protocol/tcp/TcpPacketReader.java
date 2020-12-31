@@ -66,6 +66,7 @@ public class TcpPacketReader {
         if (result.getHeader().getOffset() != offset) {
             throw new IllegalArgumentException("The offset in the input data do not match.");
         }
+        byteBuffer.clear();
         return result;
     }
 }

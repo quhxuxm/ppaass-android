@@ -34,12 +34,16 @@ public class IpPacketWriter {
         if (IpDataProtocol.TCP == ipV4Header.getProtocol()) {
             resultBuffer.put(TcpPacketWriter.INSTANCE.write((TcpPacket) packet.getData(), ipV4Header));
             resultBuffer.flip();
-            return resultBuffer.array();
+            byte[] result= resultBuffer.array();
+            resultBuffer.clear();
+            return result;
         }
         if (IpDataProtocol.UDP == ipV4Header.getProtocol()) {
             resultBuffer.put(UdpPacketWriter.INSTANCE.write((UdpPacket) packet.getData(), ipV4Header));
             resultBuffer.flip();
-            return resultBuffer.array();
+            byte[] result= resultBuffer.array();
+            resultBuffer.clear();
+            return result;
         }
         throw new UnsupportedOperationException("Do not support other protocol.");
     }
@@ -72,6 +76,8 @@ public class IpPacketWriter {
         byteBuffer.put(ipV4Header.getDestinationAddress());
         byteBuffer.put(ipV4Header.getOptions());
         byteBuffer.flip();
-        return byteBuffer.array();
+        byte[] result= byteBuffer.array();
+        byteBuffer.clear();
+        return result;
     }
 }
