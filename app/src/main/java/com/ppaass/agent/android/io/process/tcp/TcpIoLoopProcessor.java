@@ -10,7 +10,6 @@ import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
-import io.netty.channel.PreferHeapByteBufAllocator;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import org.jetbrains.annotations.Nullable;
@@ -30,6 +29,10 @@ public class TcpIoLoopProcessor {
     private final OutputStream remoteToDeviceStream;
     private final NioEventLoopGroup remoteNioEventLoopGroup;
     private final ScheduledExecutorService twoMslTimerExecutor;
+    private final ExecutorService tcpIoLoopFlowTaskExecutor;
+    private final ExecutorService clearExecutor;
+    private final Bootstrap remoteBootstrap;
+    private boolean alive;
 
     public TcpIoLoopProcessor(VpnService vpnService, byte[] agentPrivateKeyBytes, byte[] proxyPublicKeyBytes,
                               OutputStream remoteToDeviceStream) {
@@ -38,8 +41,36 @@ public class TcpIoLoopProcessor {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.tcpIoLoops = new ConcurrentHashMap<>();
-        this.remoteNioEventLoopGroup = new NioEventLoopGroup(512);
-        this.twoMslTimerExecutor= Executors.newScheduledThreadPool(64);
+        this.remoteNioEventLoopGroup = new NioEventLoopGroup(32);
+        this.twoMslTimerExecutor = Executors.newScheduledThreadPool(32);
+        this.tcpIoLoopFlowTaskExecutor = Executors.newFixedThreadPool(32);
+        this.remoteBootstrap = this.createRemoteBootstrap();
+        this.clearExecutor = Executors.newSingleThreadExecutor();
+        this.alive = true;
+        this.clearExecutor.execute(() -> {
+            while (this.alive) {
+                tcpIoLoops.forEach((key, tcpIoLoop) -> {
+                    Log.d(TcpIoLoopProcessor.class.getName(),
+                            "[" + key + "] still in the memory, tcp loop = " + tcpIoLoop);
+                    if (System.currentTimeMillis() - tcpIoLoop.getUpdateTime() > 20000) {
+                        tcpIoLoop.destroy();
+                    }
+                });
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    Log.e(TcpIoLoopProcessor.class.getName(), "Clear thread get a error", e);
+                }
+            }
+        });
+    }
+
+    public void shutdown() {
+        this.remoteNioEventLoopGroup.shutdownGracefully();
+        this.twoMslTimerExecutor.shutdown();
+        this.tcpIoLoopFlowTaskExecutor.shutdown();
+        tcpIoLoops.clear();
+        this.alive = false;
     }
 
     public void process(IpPacket ipPacket) {
@@ -49,7 +80,8 @@ public class TcpIoLoopProcessor {
                     "Some problem happen can not process ip packet, ip packet = " + ipPacket);
             return;
         }
-        tcpIoLoop.getFlowTask().execute(ipPacket);
+        tcpIoLoop.getDeviceInputQueue().offer(ipPacket);
+        tcpIoLoop.setUpdateTime(System.currentTimeMillis());
     }
 
     @Nullable
@@ -83,7 +115,7 @@ public class TcpIoLoopProcessor {
         return this.tcpIoLoops.computeIfAbsent(tcpIoLoopKey,
                 (key) -> {
                     TcpIoLoop tcpIoLoop =
-                            new TcpIoLoop(key,
+                            new TcpIoLoop(key, System.currentTimeMillis(),
                                     sourceAddress,
                                     destinationAddress,
                                     sourcePort,
@@ -91,11 +123,13 @@ public class TcpIoLoopProcessor {
                     tcpIoLoop.setStatus(TcpIoLoopStatus.LISTEN);
                     TcpIoLoopFlowTask
                             flowTask =
-                            new TcpIoLoopFlowTask(tcpIoLoop, this.createRemoteBootstrap(), twoMslTimerExecutor);
+                            new TcpIoLoopFlowTask(tcpIoLoop, this.remoteBootstrap, twoMslTimerExecutor);
                     tcpIoLoop.setFlowTask(flowTask);
                     Log.d(TcpIoLoopProcessor.class.getName(),
                             "Create tcp loop, ip packet = " + ipPacket + ", tcp loop = " + tcpIoLoop +
                                     ", loop container size = " + tcpIoLoops.size());
+                    flowTask.start();
+                    this.tcpIoLoopFlowTaskExecutor.execute(tcpIoLoop.getFlowTask());
                     return tcpIoLoop;
                 });
     }
@@ -114,7 +148,6 @@ public class TcpIoLoopProcessor {
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
         remoteBootstrap.option(ChannelOption.AUTO_READ, true);
         remoteBootstrap.option(ChannelOption.AUTO_CLOSE, true);
-        remoteBootstrap.option(ChannelOption.ALLOCATOR, PreferHeapByteBufAllocator.DEFAULT);
         remoteBootstrap.option(ChannelOption.TCP_NODELAY, true);
         remoteBootstrap.option(ChannelOption.SO_REUSEADDR, true);
         remoteBootstrap.option(ChannelOption.SO_LINGER, 1);

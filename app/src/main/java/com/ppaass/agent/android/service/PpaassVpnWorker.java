@@ -42,6 +42,7 @@ public class PpaassVpnWorker implements Runnable {
     public synchronized void stop() {
         this.alive = false;
         this.executor.shutdown();
+        this.tcpIoLoopProcessor.shutdown();
     }
 
     @Override
@@ -51,7 +52,6 @@ public class PpaassVpnWorker implements Runnable {
             try {
                 int readResult = this.deviceToRemoteStream.read(buffer);
                 if (readResult <= 0) {
-                    Thread.sleep(50);
                     continue;
                 }
                 IpPacket ipPacket = IpPacketReader.INSTANCE.parse(buffer);
@@ -66,7 +66,7 @@ public class PpaassVpnWorker implements Runnable {
                     continue;
                 }
                 Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 Log.e(PpaassVpnService.class.getName(), "Vpn service have exception", e);
             }
         }
