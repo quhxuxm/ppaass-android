@@ -37,6 +37,7 @@ public class TcpPacketWriter {
         byteBufferForChecksum.put(tcpPacketBytesForChecksum);
         byteBufferForChecksum.flip();
         int checksum = ChecksumUtil.INSTANCE.checksum(byteBufferForChecksum.array());
+        byteBufferForChecksum.clear();
         return this.writeWithGivenChecksum(packet, checksum);
     }
 

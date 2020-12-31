@@ -28,6 +28,7 @@ public class UdpPacketWriter {
         byteBufferForChecksum.put(udpPacketBytesForChecksum);
         byteBufferForChecksum.flip();
         int checksum = ChecksumUtil.INSTANCE.checksum(byteBufferForChecksum.array());
+        byteBufferForChecksum.clear();
         return this.writeWithGivenChecksum(packet, checksum);
     }
 

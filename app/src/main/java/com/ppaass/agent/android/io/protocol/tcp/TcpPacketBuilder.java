@@ -156,6 +156,7 @@ public class TcpPacketBuilder {
         }
         optionAndPaddingByteBuffer.flip();
         int offset = (optionAndPaddingByteBuffer.remaining() + IProtocolConst.MIN_TCP_HEADER_LENGTH) / 4;
+        optionAndPaddingByteBuffer.clear();
         tcpHeader.setOffset(offset);
         tcpHeader.setResolve(this.resolve);
         tcpHeader.setUrgPointer(this.urgPointer);
