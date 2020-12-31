@@ -50,17 +50,17 @@ public class TcpIoLoopProcessor {
         this.clearExecutor.execute(() -> {
             while (this.alive) {
                 tcpIoLoops.forEach((key, tcpIoLoop) -> {
-                    Log.d(TcpIoLoopProcessor.class.getName(),
-                            "[" + key + "] still in the memory, tcp loop = " + tcpIoLoop);
                     if (System.currentTimeMillis() - tcpIoLoop.getUpdateTime() > 20000) {
                         tcpIoLoop.destroy();
                     }
                 });
                 try {
-                    Thread.sleep(100);
+                    Thread.sleep(5000);
                 } catch (InterruptedException e) {
                     Log.e(TcpIoLoopProcessor.class.getName(), "Clear thread get a error", e);
                 }
+                Log.d(TcpIoLoopProcessor.class.getName(),
+                        "Tcp loop in memory: " + tcpIoLoops);
             }
         });
     }

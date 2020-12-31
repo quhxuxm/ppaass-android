@@ -235,56 +235,10 @@ class TcpIoLoopFlowTask implements Runnable {
     private void doPsh(TcpHeader inputTcpHeader, byte[] data) {
         //Psh ack
         if (data == null) {
-//            IpPacket ipPacketInWindow = this.loop.getWindow().peek();
-//            if (ipPacketInWindow == null) {
-//                Log.d(TcpIoLoopFlowTask.class.getName(),
-//                        "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No element in window, tcp header =" +
-//                                inputTcpHeader +
-//                                ", tcp loop = " + this.loop);
-//                this.loop.getExchangeSemaphore().release();
-//                return;
-//            }
-//            TcpPacket tcpPacketInWindow = (TcpPacket) ipPacketInWindow.getData();
-//            long tcpPacketInWindowSequence =
-//                    tcpPacketInWindow.getHeader().getSequenceNumber();
-//            if (inputTcpHeader.getAcknowledgementNumber() == tcpPacketInWindowSequence) {
-//                this.loop.getWindow().poll();
-//                Log.d(TcpIoLoopFlowTask.class.getName(),
-//                        "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], First element in window match the input, tcp header =" +
-//                                inputTcpHeader +
-//                                ", tcp loop = " + this.loop);
-//                this.loop.getExchangeSemaphore().release();
-//                return;
-//            }
             Log.d(TcpIoLoopFlowTask.class.getName(),
-                    "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], First element in window DO NOT MATCH the input, tcp header =" +
+                    "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], tcp header =" +
                             inputTcpHeader +
                             ", tcp loop = " + this.loop);
-//            for (IpPacket ipPacketInWindowToReSend : this.loop.getWindow()) {
-//                TcpPacket tcpPacketInWindowToReSend = (TcpPacket) ipPacketInWindowToReSend.getData();
-//                if (inputTcpHeader.getAcknowledgementNumber() <
-//                        tcpPacketInWindowToReSend.getHeader().getSequenceNumber()) {
-//                    Log.d(TcpIoLoopFlowTask.class.getName(),
-//                            "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], Window element will receive later, current window element = " +
-//                                    ipPacketInWindowToReSend + ", tcp header =" +
-//                                    inputTcpHeader +
-//                                    ", tcp loop = " + this.loop);
-//                    break;
-//                }
-//                Log.d(TcpIoLoopFlowTask.class.getName(),
-//                        "RECEIVE [PSH ACK WITHOUT DATA(status=ESTABLISHED, size=0)], Resend window element, tcp header =" +
-//                                inputTcpHeader +
-//                                ", tcp loop = " + this.loop + ", window element = ");
-//                TcpIoLoopRemoteToDeviceWriter.INSTANCE
-//                        .writeIpPacketToDevice(ipPacketInWindowToReSend, this.loop.getKey(),
-//                                this.loop.getRemoteToDeviceStream());
-//                try {
-//                    this.loop.getExchangeSemaphore().acquire();
-//                } catch (InterruptedException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-            this.loop.getExchangeSemaphore().release();
             return;
         }
         ByteBuf pshDataByteBuf = Unpooled.wrappedBuffer(data);
@@ -332,56 +286,10 @@ class TcpIoLoopFlowTask implements Runnable {
         }
         if (TcpIoLoopStatus.ESTABLISHED == this.loop.getStatus()) {
             if (data == null) {
-//                IpPacket ipPacketInWindow = this.loop.getWindow().peek();
-//                if (ipPacketInWindow == null) {
-//                    Log.d(TcpIoLoopFlowTask.class.getName(),
-//                            "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], No element in window, tcp header =" +
-//                                    inputTcpHeader +
-//                                    ", tcp loop = " + this.loop);
-//                    this.loop.getExchangeSemaphore().release();
-//                    return;
-//                }
-//                TcpPacket tcpPacketInWindow = (TcpPacket) ipPacketInWindow.getData();
-//                long tcpPacketInWindowSequence =
-//                        tcpPacketInWindow.getHeader().getSequenceNumber();
-//                if (inputTcpHeader.getAcknowledgementNumber() == tcpPacketInWindowSequence) {
-//                    this.loop.getWindow().poll();
-//                    Log.d(TcpIoLoopFlowTask.class.getName(),
-//                            "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], First element in window match the input, tcp header =" +
-//                                    inputTcpHeader +
-//                                    ", tcp loop = " + this.loop);
-//                    this.loop.getExchangeSemaphore().release();
-//                    return;
-//                }
                 Log.d(TcpIoLoopFlowTask.class.getName(),
-                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], First element in window DO NOT MATCH the input, tcp header =" +
+                        "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], tcp header =" +
                                 inputTcpHeader +
                                 ", tcp loop = " + this.loop);
-//                for (IpPacket ipPacketInWindowToReSend : this.loop.getWindow()) {
-//                    TcpPacket tcpPacketInWindowToReSend = (TcpPacket) ipPacketInWindowToReSend.getData();
-//                    if (inputTcpHeader.getAcknowledgementNumber() <
-//                            tcpPacketInWindowToReSend.getHeader().getSequenceNumber()) {
-//                        Log.d(TcpIoLoopFlowTask.class.getName(),
-//                                "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], Window element will receive later, current window element = " +
-//                                        ipPacketInWindowToReSend + ", tcp header =" +
-//                                        inputTcpHeader +
-//                                        ", tcp loop = " + this.loop);
-//                        break;
-//                    }
-//                    Log.d(TcpIoLoopFlowTask.class.getName(),
-//                            "RECEIVE [ACK WITHOUT DATA(status=ESTABLISHED, size=0)], Resend window element, tcp header =" +
-//                                    inputTcpHeader +
-//                                    ", tcp loop = " + this.loop + ", window element = ");
-//                    TcpIoLoopRemoteToDeviceWriter.INSTANCE
-//                            .writeIpPacketToDevice(ipPacketInWindowToReSend, this.loop.getKey(),
-//                                    this.loop.getRemoteToDeviceStream());
-//                    try {
-//                        this.loop.getExchangeSemaphore().acquire();
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-//                }
-                this.loop.getExchangeSemaphore().release();
                 return;
             }
             if (this.loop.getRemoteChannel() == null || !this.loop.getRemoteChannel().isOpen()) {
@@ -428,7 +336,6 @@ class TcpIoLoopFlowTask implements Runnable {
             return;
         }
         if (TcpIoLoopStatus.LAST_ACK == this.loop.getStatus()) {
-            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [ACK(status=LAST_ACK)], close tcp loop, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
@@ -437,7 +344,6 @@ class TcpIoLoopFlowTask implements Runnable {
             return;
         }
         if (TcpIoLoopStatus.CLOSING == this.loop.getStatus()) {
-            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [ACK(status=CLOSING)], switch tcp loop status to TIME_WAITE, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
@@ -464,7 +370,6 @@ class TcpIoLoopFlowTask implements Runnable {
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE1 == this.loop.getStatus()) {
-            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [ACK(status=FIN_WAITE1)], switch tcp loop status to FIN_WAITE2, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
@@ -513,7 +418,6 @@ class TcpIoLoopFlowTask implements Runnable {
 
     private void doFin(TcpHeader inputTcpHeader) {
         if (TcpIoLoopStatus.ESTABLISHED == this.loop.getStatus() && inputTcpHeader.isAck()) {
-            this.loop.getExchangeSemaphore().release();
             this.loop.setStatus(TcpIoLoopStatus.CLOSE_WAIT);
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [FIN(status=ESTABLISHED, STEP1)], switch tcp loop status to CLOSE_WAIT, tcp header =" +
@@ -555,7 +459,6 @@ class TcpIoLoopFlowTask implements Runnable {
             return;
         }
         if (TcpIoLoopStatus.CLOSING == this.loop.getStatus() && inputTcpHeader.isAck()) {
-            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [FIN ACK(status=CLOSING)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
@@ -581,13 +484,11 @@ class TcpIoLoopFlowTask implements Runnable {
             return;
         }
         if (TcpIoLoopStatus.CLOSE_WAIT == this.loop.getStatus()) {
-            this.loop.getExchangeSemaphore().release();
             this.loop.setStatus(TcpIoLoopStatus.CLOSED);
             this.delayDestroyTcpIoLoop(null);
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE1 == this.loop.getStatus() && inputTcpHeader.isAck()) {
-            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [FIN ACK(status=FIN_WAITE1)], switch tcp loop status to CLOSING, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
@@ -596,7 +497,6 @@ class TcpIoLoopFlowTask implements Runnable {
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE2 == this.loop.getStatus() && inputTcpHeader.isAck()) {
-            this.loop.getExchangeSemaphore().release();
             Log.d(TcpIoLoopFlowTask.class.getName(),
                     "RECEIVE [FIN(status=FIN_WAITE2)], switch tcp loop status to TIME_WAITE, send ack, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);

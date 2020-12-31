@@ -27,7 +27,6 @@ public class TcpIoLoop {
     private boolean initializeStarted;
     private long accumulateRemoteToDeviceAcknowledgementNumber;
     private long accumulateRemoteToDeviceSequenceNumber;
-    private final Semaphore exchangeSemaphore;
     private final Queue<IpPacket> deviceInputQueue;
 
     public TcpIoLoop(String key, long updateTime, InetAddress sourceAddress, InetAddress destinationAddress,
@@ -47,7 +46,6 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
         this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
         this.initializeStarted = false;
-        this.exchangeSemaphore = new Semaphore(1);
         this.deviceInputQueue = new ConcurrentLinkedQueue<>();
     }
 
@@ -145,9 +143,7 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceSequenceNumber += accumulateRemoteToDeviceSequenceNumber;
     }
 
-    public Semaphore getExchangeSemaphore() {
-        return exchangeSemaphore;
-    }
+
 
     public Queue<IpPacket> getDeviceInputQueue() {
         return deviceInputQueue;
@@ -159,7 +155,6 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
         this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
         this.deviceInputQueue.clear();
-        this.exchangeSemaphore.release();
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop RESET, tcp loop = " + this);
     }
 
@@ -169,7 +164,6 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceSequenceNumber = this.generateRandomNumber();
         this.accumulateRemoteToDeviceAcknowledgementNumber = 0;
         this.deviceInputQueue.clear();
-        this.exchangeSemaphore.release();
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
     }
 
