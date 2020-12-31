@@ -82,21 +82,5 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
                 "Exception for tcp loop remote channel, tcp loop=" + tcpIoLoop, cause);
-        if (cause.getMessage() != null && cause.getMessage().contains("Connection reset by peer")) {
-            Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
-                    "Connection reset by peer exception happen, reset the tcp loop, tcp loop=" + tcpIoLoop);
-            IpPacket ipPacketWroteToDevice =
-                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRstAck(
-                            tcpIoLoop.getDestinationAddress(),
-                            tcpIoLoop.getDestinationPort(),
-                            tcpIoLoop.getSourceAddress(),
-                            tcpIoLoop.getSourcePort(),
-                            tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
-                            tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
-            TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
-                            tcpIoLoop.getRemoteToDeviceStream());
-            tcpIoLoop.reset();
-        }
     }
 }

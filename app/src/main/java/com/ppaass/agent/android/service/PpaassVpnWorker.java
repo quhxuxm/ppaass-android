@@ -52,6 +52,11 @@ public class PpaassVpnWorker implements Runnable {
             try {
                 int readResult = this.deviceToRemoteStream.read(buffer);
                 if (readResult <= 0) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        Log.e(PpaassVpnWorker.class.getName(), "Read device input stream has error.", e);
+                    }
                     continue;
                 }
                 IpPacket ipPacket = IpPacketReader.INSTANCE.parse(buffer);
