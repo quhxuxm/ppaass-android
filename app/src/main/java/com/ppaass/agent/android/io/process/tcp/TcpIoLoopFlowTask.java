@@ -11,6 +11,7 @@ import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFutureListener;
 
+import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
@@ -51,7 +52,8 @@ class TcpIoLoopFlowTask implements Runnable {
                 this.execute(inputIpPacket);
             } catch (Exception e) {
                 Log.e(TcpIoLoopFlowTask.class.getName(),
-                        "Exception happen in tcp loop, reset connection, tcp loop = " + this.loop + ", input ip packet = " +
+                        "Exception happen in tcp loop, reset connection, tcp loop = " + this.loop +
+                                ", input ip packet = " +
                                 inputIpPacket);
                 IpPacket resetPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRstAck(
                         this.loop.getDestinationAddress(),
@@ -63,7 +65,7 @@ class TcpIoLoopFlowTask implements Runnable {
                 );
                 TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                         this.loop.getRemoteToDeviceStream());
-                this.delayDestroyTcpIoLoop(null);
+                this.loop.destroy();
                 return;
             }
         }
@@ -143,7 +145,7 @@ class TcpIoLoopFlowTask implements Runnable {
                         TcpIoLoopRemoteToDeviceWriter.INSTANCE
                                 .writeIpPacketToDevice(resetPacket, this.loop.getKey(),
                                         this.loop.getRemoteToDeviceStream());
-                        this.makeTcpIoLoopReset();
+                        this.loop.destroy();
                         return;
                     }
                     this.loop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
@@ -160,7 +162,15 @@ class TcpIoLoopFlowTask implements Runnable {
                         ByteBuf mssOptionBuf = Unpooled.wrappedBuffer(mssOption.getInfo());
                         int mss = mssOptionBuf.readUnsignedShort();
                         this.loop.setMss(mss);
-//                        this.loop.setMss(256);
+                        Optional<TcpHeaderOption> wsoptOptional = inputTcpHeader.getOptions().stream()
+                                .filter(tcpHeaderOption -> tcpHeaderOption.getKind() == TcpHeaderOption.Kind.WSOPT)
+                                .findFirst();
+                        wsoptOptional.ifPresent(tcpHeaderOption -> {
+                            int window = inputTcpHeader.getWindow();
+                            ByteBuf wsoptBuf = Unpooled.wrappedBuffer(tcpHeaderOption.getInfo());
+                            int wsopt = wsoptBuf.readInt();
+                            this.loop.setConcreteWindowSizeInByte(window << wsopt);
+                        });
                     }
                     Log.d(TcpIoLoopFlowTask.class.getName(),
                             "RECEIVE [SYN], initializing connection SUCCESS, switch tcp loop to SYN_RECIVED, tcp header = " +
@@ -251,7 +261,7 @@ class TcpIoLoopFlowTask implements Runnable {
                     "RECEIVE [ACK(status=LAST_ACK)], close tcp loop, tcp header ="
                             + inputTcpHeader + " tcp loop = " + this.loop);
             this.loop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
-            this.delayDestroyTcpIoLoop(DEFAULT_2MSL_TIME);
+            this.loop.destroy();
             return;
         }
         if (TcpIoLoopStatus.CLOSING == this.loop.getStatus()) {
@@ -294,10 +304,6 @@ class TcpIoLoopFlowTask implements Runnable {
                         + inputTcpHeader + " tcp loop = " + this.loop);
     }
 
-    private void makeTcpIoLoopReset() {
-        this.loop.reset();
-    }
-
     private void timeWaiteTcpIoLoop(Runnable doSomeThing) {
         synchronized (this.loop) {
             this.loop.setStatus(TcpIoLoopStatus.TIME_WAITE);
@@ -308,23 +314,12 @@ class TcpIoLoopFlowTask implements Runnable {
         }
     }
 
-    private void delayDestroyTcpIoLoop(Integer delayTime) {
-        Integer delay = delayTime;
-        if (delay == null) {
-            delay = DEFAULT_DELAY_TIME;
-        }
-        this.loop.destroy();
-        synchronized (this.loop) {
-            this.twoMslTimerExecutor.schedule(loop.getFlowTask()::stop, delay, TimeUnit.SECONDS);
-        }
-    }
-
     private void doRst(TcpHeader inputTcpHeader) {
         Log.d(TcpIoLoopFlowTask.class.getName(),
                 "RECEIVE [RST], destroy tcp loop, tcp header =" +
                         inputTcpHeader +
                         ", tcp loop = " + this.loop);
-        this.delayDestroyTcpIoLoop(null);
+        this.loop.destroy();
     }
 
     private void doFin(TcpHeader inputTcpHeader) {
@@ -364,7 +359,7 @@ class TcpIoLoopFlowTask implements Runnable {
                             .writeIpPacketToDevice(finIpPacket, this.loop.getKey(),
                                     this.loop.getRemoteToDeviceStream());
                     this.loop.setStatus(TcpIoLoopStatus.LAST_ACK);
-                    this.delayDestroyTcpIoLoop(DEFAULT_2MSL_TIME + 10);
+                    this.loop.destroy();
                 }
             });
             return;
@@ -396,7 +391,7 @@ class TcpIoLoopFlowTask implements Runnable {
         }
         if (TcpIoLoopStatus.CLOSE_WAIT == this.loop.getStatus()) {
             this.loop.setStatus(TcpIoLoopStatus.CLOSED);
-            this.delayDestroyTcpIoLoop(null);
+            this.loop.destroy();
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE1 == this.loop.getStatus() && inputTcpHeader.isAck()) {

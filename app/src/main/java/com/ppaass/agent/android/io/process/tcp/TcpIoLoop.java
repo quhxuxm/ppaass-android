@@ -7,13 +7,13 @@ import io.netty.channel.Channel;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TcpIoLoop {
+    private final static ScheduledExecutorService delayDestroyExecutor = Executors.newScheduledThreadPool(32);
     private final AtomicLong updateTime;
     private final InetAddress sourceAddress;
     private final InetAddress destinationAddress;
@@ -22,6 +22,7 @@ public class TcpIoLoop {
     private final String key;
     private final AtomicReference<TcpIoLoopStatus> status;
     private int mss;
+    private int concreteWindowSizeInByte;
     private final AtomicReference<Channel> remoteChannel;
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final OutputStream remoteToDeviceStream;
@@ -30,6 +31,7 @@ public class TcpIoLoop {
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
     private final Queue<IpPacket> deviceInputQueue;
+
 
     public TcpIoLoop(String key, long updateTime, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -50,6 +52,7 @@ public class TcpIoLoop {
         this.initializeStarted = new AtomicBoolean(false);
         this.deviceInputQueue = new ConcurrentLinkedQueue<>();
         this.remoteChannel = new AtomicReference<>(null);
+        this.concreteWindowSizeInByte=0;
     }
 
     public long getUpdateTime() {
@@ -150,6 +153,7 @@ public class TcpIoLoop {
             long accumulateRemoteToDeviceSequenceNumber) {
         this.accumulateRemoteToDeviceSequenceNumber.addAndGet(accumulateRemoteToDeviceSequenceNumber);
     }
+
     public void setAccumulateRemoteToDeviceSequenceNumber(
             long accumulateRemoteToDeviceSequenceNumber) {
         this.accumulateRemoteToDeviceSequenceNumber.set(accumulateRemoteToDeviceSequenceNumber);
@@ -159,23 +163,30 @@ public class TcpIoLoop {
         return deviceInputQueue;
     }
 
-    public void reset() {
-        this.status.set(TcpIoLoopStatus.LISTEN);
-        this.initializeStarted.set(false);
-        this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
-        this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
-        this.deviceInputQueue.clear();
-        Log.d(TcpIoLoop.class.getName(), "Tcp io loop RESET, tcp loop = " + this);
+    public void setConcreteWindowSizeInByte(int concreteWindowSizeInByte) {
+        this.concreteWindowSizeInByte = concreteWindowSizeInByte;
+    }
+
+    public int getConcreteWindowSizeInByte() {
+        return concreteWindowSizeInByte;
     }
 
     public void destroy() {
-        this.container.remove(this.getKey());
-        this.initializeStarted.set(false);
-        this.status.set(TcpIoLoopStatus.CLOSED);
-        this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
-        this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
-        this.deviceInputQueue.clear();
-        Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
+        delayDestroyExecutor.schedule(() -> {
+            this.container.remove(this.getKey());
+            this.concreteWindowSizeInByte=0;
+            this.initializeStarted.set(false);
+            this.status.set(TcpIoLoopStatus.CLOSED);
+            this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
+            this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
+            this.deviceInputQueue.clear();
+            if (this.remoteChannel.get() != null) {
+                if (this.remoteChannel.get().isOpen()) {
+                    this.remoteChannel.get().close();
+                }
+            }
+            Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
+        }, 10, TimeUnit.SECONDS);
     }
 
     @Override
@@ -188,6 +199,7 @@ public class TcpIoLoop {
                 ", destinationPort=" + destinationPort +
                 ", status=" + status +
                 ", mss=" + mss +
+                ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
                 ", initializeStarted=" + initializeStarted +
                 ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
