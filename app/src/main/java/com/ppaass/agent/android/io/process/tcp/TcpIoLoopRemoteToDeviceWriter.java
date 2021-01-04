@@ -151,7 +151,7 @@ class TcpIoLoopRemoteToDeviceWriter {
                                         Unpooled.wrappedBuffer(tcpData)));
             }
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
-//            remoteToDeviceStream.flush();
+            remoteToDeviceStream.flush();
         } catch (IOException e) {
             Log.e(TcpIoLoopRemoteToDeviceWriter.class.getName(), "Fail to write ip packet to app because of exception.",
                     e);
