@@ -30,7 +30,6 @@ public class TcpIoLoopProcessor {
     private final NioEventLoopGroup remoteNioEventLoopGroup;
     private final ScheduledExecutorService twoMslTimerExecutor;
     private final ExecutorService tcpIoLoopFlowTaskExecutor;
-    private final ExecutorService clearExecutor;
     private final Bootstrap remoteBootstrap;
     private boolean alive;
 
@@ -45,24 +44,7 @@ public class TcpIoLoopProcessor {
         this.twoMslTimerExecutor = Executors.newScheduledThreadPool(32);
         this.tcpIoLoopFlowTaskExecutor = Executors.newFixedThreadPool(32);
         this.remoteBootstrap = this.createRemoteBootstrap();
-        this.clearExecutor = Executors.newSingleThreadExecutor();
         this.alive = true;
-        this.clearExecutor.execute(() -> {
-            while (this.alive) {
-                tcpIoLoops.forEach((key, tcpIoLoop) -> {
-                    if (System.currentTimeMillis() - tcpIoLoop.getUpdateTime() > 20000) {
-                        tcpIoLoop.destroy();
-                    }
-                });
-                try {
-                    Thread.sleep(5000);
-                } catch (InterruptedException e) {
-                    Log.e(TcpIoLoopProcessor.class.getName(), "Clear thread get a error", e);
-                }
-                Log.d(TcpIoLoopProcessor.class.getName(),
-                        "Tcp loop in memory: " + tcpIoLoops);
-            }
-        });
     }
 
     public void shutdown() {

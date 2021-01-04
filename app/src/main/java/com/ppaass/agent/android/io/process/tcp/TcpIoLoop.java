@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -31,7 +32,8 @@ public class TcpIoLoop {
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
     private final Queue<IpPacket> deviceInputQueue;
-
+    private final AtomicInteger accumulateWindowBytes;
+    private final Semaphore exchangeSemaphore;
 
     public TcpIoLoop(String key, long updateTime, InetAddress sourceAddress, InetAddress destinationAddress,
                      int sourcePort,
@@ -52,7 +54,9 @@ public class TcpIoLoop {
         this.initializeStarted = new AtomicBoolean(false);
         this.deviceInputQueue = new ConcurrentLinkedQueue<>();
         this.remoteChannel = new AtomicReference<>(null);
-        this.concreteWindowSizeInByte=0;
+        this.concreteWindowSizeInByte = 0;
+        this.accumulateWindowBytes = new AtomicInteger(0);
+        this.exchangeSemaphore = new Semaphore(1);
     }
 
     public long getUpdateTime() {
@@ -149,14 +153,22 @@ public class TcpIoLoop {
         return accumulateRemoteToDeviceSequenceNumber.get();
     }
 
-    public void increaseAccumulateRemoteToDeviceSequenceNumber(
+    public long increaseAccumulateRemoteToDeviceSequenceNumber(
             long accumulateRemoteToDeviceSequenceNumber) {
-        this.accumulateRemoteToDeviceSequenceNumber.addAndGet(accumulateRemoteToDeviceSequenceNumber);
+        return this.accumulateRemoteToDeviceSequenceNumber.addAndGet(accumulateRemoteToDeviceSequenceNumber);
     }
 
     public void setAccumulateRemoteToDeviceSequenceNumber(
             long accumulateRemoteToDeviceSequenceNumber) {
         this.accumulateRemoteToDeviceSequenceNumber.set(accumulateRemoteToDeviceSequenceNumber);
+    }
+
+    public void increaseAccumulateWindowBytes(int delta) {
+        this.accumulateWindowBytes.addAndGet(delta);
+    }
+
+    public int getAccumulateWindowBytes() {
+        return accumulateWindowBytes.get();
     }
 
     public Queue<IpPacket> getDeviceInputQueue() {
@@ -171,22 +183,27 @@ public class TcpIoLoop {
         return concreteWindowSizeInByte;
     }
 
+    public Semaphore getExchangeSemaphore() {
+        return exchangeSemaphore;
+    }
+
     public void destroy() {
         delayDestroyExecutor.schedule(() -> {
             this.container.remove(this.getKey());
-            this.concreteWindowSizeInByte=0;
+            this.concreteWindowSizeInByte = 0;
             this.initializeStarted.set(false);
             this.status.set(TcpIoLoopStatus.CLOSED);
             this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
             this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
             this.deviceInputQueue.clear();
+            this.accumulateWindowBytes.set(0);
             if (this.remoteChannel.get() != null) {
                 if (this.remoteChannel.get().isOpen()) {
                     this.remoteChannel.get().close();
                 }
             }
             Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
-        }, 10, TimeUnit.SECONDS);
+        }, 2, TimeUnit.SECONDS);
     }
 
     @Override
@@ -204,6 +221,7 @@ public class TcpIoLoop {
                 ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
                 ", deviceInputQueue = (size:" + deviceInputQueue.size() + ")" +
+                ", accumulateWindowBytes = " + this.accumulateWindowBytes +
                 ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
                 ", accumulateRemoteToDeviceAcknowledgementNumber = " +
                 this.accumulateRemoteToDeviceAcknowledgementNumber +

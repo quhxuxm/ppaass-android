@@ -3,6 +3,7 @@ package com.ppaass.agent.android.io.protocol.ip;
 import com.ppaass.agent.android.io.protocol.IProtocolConst;
 
 public class IpV4HeaderBuilder {
+    private static volatile int IP_IDENTIFICATION = 0;
     private IpDifferentiatedServices ds;
     private IpExplicitCongestionNotification ecn;
     private int identification;
@@ -21,7 +22,7 @@ public class IpV4HeaderBuilder {
         this.ecn = new IpExplicitCongestionNotification(false, 0);
         this.options = new byte[]{};
         this.flags = new IpFlags(true, false);
-        this.identification = 0;
+        this.identification = IP_IDENTIFICATION++;
         this.fragmentOffset = 0;
     }
 

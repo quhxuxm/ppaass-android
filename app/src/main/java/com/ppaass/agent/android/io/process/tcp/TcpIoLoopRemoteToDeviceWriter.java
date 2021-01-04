@@ -71,11 +71,11 @@ class TcpIoLoopRemoteToDeviceWriter {
                 sequenceNumber, acknowledgementNumber);
     }
 
-    public IpPacket buildRstAck(InetAddress sourceAddress, int sourcePort,
-                                InetAddress destinationAddress, int destinationPort, long sequenceNumber,
-                                long acknowledgementNumber) {
+    public IpPacket buildRst(InetAddress sourceAddress, int sourcePort,
+                             InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+                             long acknowledgementNumber) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
-        tcpPacketBuilder.rst(true).ack(true);
+        tcpPacketBuilder.rst(true);
         return this.buildIpPacket(tcpPacketBuilder, sourceAddress, sourcePort, destinationAddress, destinationPort,
                 sequenceNumber, acknowledgementNumber);
     }
@@ -112,6 +112,11 @@ class TcpIoLoopRemoteToDeviceWriter {
                 .acknowledgementNumber(acknowledgementNumber)
                 .destinationPort(destinationPort)
                 .sourcePort(sourcePort).window(65535);
+        ByteBuf timeStampByteBuf = Unpooled.buffer();
+        timeStampByteBuf.writeInt((int)System.currentTimeMillis());
+        tcpPacketBuilder
+                .addOption(new TcpHeaderOption(TcpHeaderOption.Kind.TSPOT, ByteBufUtil.getBytes(timeStampByteBuf)));
+        timeStampByteBuf.clear();
         IpPacketBuilder ipPacketBuilder = new IpPacketBuilder();
         TcpPacket tcpPacket = tcpPacketBuilder.build();
         ipPacketBuilder.data(tcpPacket);

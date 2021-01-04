@@ -51,7 +51,7 @@ public class PpaassVpnWorker implements Runnable {
             byte[] buffer = new byte[DEVICE_TO_REMOTE_BUFFER_SIZE];
             try {
                 int readResult = this.deviceToRemoteStream.read(buffer);
-                if (readResult <= 0) {
+                if (readResult < 0) {
                     try {
                         Thread.sleep(100);
                     } catch (InterruptedException e) {
