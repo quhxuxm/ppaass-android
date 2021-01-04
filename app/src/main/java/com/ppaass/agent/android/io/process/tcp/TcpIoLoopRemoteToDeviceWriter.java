@@ -113,7 +113,7 @@ class TcpIoLoopRemoteToDeviceWriter {
                 .destinationPort(destinationPort)
                 .sourcePort(sourcePort).window(65535);
         ByteBuf timeStampByteBuf = Unpooled.buffer();
-        timeStampByteBuf.writeInt((int)System.currentTimeMillis());
+        timeStampByteBuf.writeInt(Math.abs((int) System.currentTimeMillis()));
         tcpPacketBuilder
                 .addOption(new TcpHeaderOption(TcpHeaderOption.Kind.TSPOT, ByteBufUtil.getBytes(timeStampByteBuf)));
         timeStampByteBuf.clear();
