@@ -261,6 +261,9 @@ public class TcpIoLoopFlowProcessor {
         if (tcpIoLoop == null) {
             if (inputTcpHeader.isFin()) {
                 //Send last ack to device.
+                Log.d(TcpIoLoopFlowProcessor.class.getName(),
+                        "RECEIVE [FIN ACK], send last ack to device, tcp header =" + inputTcpHeader +
+                                ", tcp loop = " + tcpIoLoop);
                 IpPacket lastAck = TcpIoLoopRemoteToDeviceWriter.INSTANCE
                         .buildAck(inputIpV4Header.getDestinationAddress(), inputTcpHeader.getDestinationPort(),
                                 inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort(),
@@ -272,9 +275,15 @@ public class TcpIoLoopFlowProcessor {
             }
             if (inputTcpHeader.isRst()) {
                 // Do nothing
+                Log.d(TcpIoLoopFlowProcessor.class.getName(),
+                        "RECEIVE [RST ACK], tcp header =" + inputTcpHeader +
+                                ", tcp loop = " + tcpIoLoop);
                 return;
             }
             //Reset connection
+            Log.d(TcpIoLoopFlowProcessor.class.getName(),
+                    "RECEIVE [ACK], ILLEGAL STATUS, tcp header =" + inputTcpHeader +
+                            ", tcp loop = " + tcpIoLoop);
             IpPacket reset;
             if (data.length == 0) {
                 reset = TcpIoLoopRemoteToDeviceWriter.INSTANCE
