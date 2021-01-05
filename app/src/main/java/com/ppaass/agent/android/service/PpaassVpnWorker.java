@@ -2,7 +2,7 @@ package com.ppaass.agent.android.service;
 
 import android.net.VpnService;
 import android.util.Log;
-import com.ppaass.agent.android.io.process.tcp.TcpIoLoopProcessor;
+import com.ppaass.agent.android.io.process.tcp.TcpIoLoopFlowProcessor;
 import com.ppaass.agent.android.io.protocol.ip.*;
 
 import java.io.IOException;
@@ -17,7 +17,7 @@ public class PpaassVpnWorker implements Runnable {
     private final InputStream deviceToRemoteStream;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
-    private final TcpIoLoopProcessor tcpIoLoopProcessor;
+    private final TcpIoLoopFlowProcessor tcpIoLoopFlowProcessor;
     private boolean alive;
 
     public PpaassVpnWorker(InputStream deviceToRemoteStream, OutputStream remoteToDeviceStream,
@@ -27,8 +27,7 @@ public class PpaassVpnWorker implements Runnable {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.alive = false;
         this.executor = Executors.newSingleThreadExecutor();
-        this.tcpIoLoopProcessor = new TcpIoLoopProcessor(vpnService, agentPrivateKeyBytes, proxyPublicKeyBytes,
-                remoteToDeviceStream);
+        this.tcpIoLoopFlowProcessor = new TcpIoLoopFlowProcessor(vpnService, remoteToDeviceStream);
     }
 
     public synchronized void start() {
@@ -41,8 +40,8 @@ public class PpaassVpnWorker implements Runnable {
 
     public synchronized void stop() {
         this.alive = false;
+        this.tcpIoLoopFlowProcessor.shutdown();
         this.executor.shutdown();
-        this.tcpIoLoopProcessor.shutdown();
     }
 
     @Override
@@ -52,11 +51,6 @@ public class PpaassVpnWorker implements Runnable {
             try {
                 int readResult = this.deviceToRemoteStream.read(buffer);
                 if (readResult < 0) {
-                    try {
-                        Thread.sleep(100);
-                    } catch (InterruptedException e) {
-                        Log.e(PpaassVpnWorker.class.getName(), "Read device input stream has error.", e);
-                    }
                     continue;
                 }
                 IpPacket ipPacket = IpPacketReader.INSTANCE.parse(buffer);
@@ -67,7 +61,7 @@ public class PpaassVpnWorker implements Runnable {
                 IpV4Header ipV4Header = (IpV4Header) ipPacket.getHeader();
                 IpDataProtocol protocol = ipV4Header.getProtocol();
                 if (IpDataProtocol.TCP == protocol) {
-                    this.tcpIoLoopProcessor.process(ipPacket);
+                    this.tcpIoLoopFlowProcessor.execute(ipPacket);
                     continue;
                 }
                 Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);

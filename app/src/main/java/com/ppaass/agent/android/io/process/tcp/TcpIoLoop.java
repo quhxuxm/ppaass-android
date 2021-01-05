@@ -1,14 +1,11 @@
 package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
-import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.channel.Channel;
 
-import java.io.OutputStream;
 import java.net.InetAddress;
-import java.util.Queue;
+import java.net.UnknownHostException;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,33 +23,34 @@ public class TcpIoLoop {
     private int concreteWindowSizeInByte;
     private final AtomicReference<Channel> remoteChannel;
     private final ConcurrentMap<String, TcpIoLoop> container;
-    private final OutputStream remoteToDeviceStream;
-    private TcpIoLoopFlowTask flowTask;
-    private final AtomicBoolean initializeStarted;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
-    private final Queue<IpPacket> deviceInputQueue;
     private final AtomicInteger accumulateWindowBytes;
     private final Semaphore exchangeSemaphore;
 
-    public TcpIoLoop(String key, long updateTime, InetAddress sourceAddress, InetAddress destinationAddress,
+    public TcpIoLoop(String key, long updateTime, byte[] sourceAddressInBytes, byte[] destinationAddressInBytes,
                      int sourcePort,
                      int destinationPort,
-                     ConcurrentMap<String, TcpIoLoop> container, OutputStream remoteToDeviceStream) {
+                     ConcurrentMap<String, TcpIoLoop> container) {
         this.updateTime = new AtomicLong(updateTime);
-        this.sourceAddress = sourceAddress;
-        this.destinationAddress = destinationAddress;
+        try {
+            this.sourceAddress = InetAddress.getByAddress(sourceAddressInBytes);
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException(e);
+        }
+        try {
+            this.destinationAddress = InetAddress.getByAddress(destinationAddressInBytes);
+        } catch (UnknownHostException e) {
+            throw new IllegalArgumentException(e);
+        }
         this.sourcePort = sourcePort;
         this.destinationPort = destinationPort;
         this.key = key;
         this.container = container;
-        this.remoteToDeviceStream = remoteToDeviceStream;
         this.status = new AtomicReference<>(TcpIoLoopStatus.CLOSED);
         this.mss = -1;
         this.accumulateRemoteToDeviceSequenceNumber = new AtomicLong(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
-        this.initializeStarted = new AtomicBoolean(false);
-        this.deviceInputQueue = new ConcurrentLinkedQueue<>();
         this.remoteChannel = new AtomicReference<>(null);
         this.concreteWindowSizeInByte = 0;
         this.accumulateWindowBytes = new AtomicInteger(0);
@@ -69,14 +67,6 @@ public class TcpIoLoop {
 
     private long generateRandomNumber() {
         return Math.abs((int) (Math.random() * 100000) + Math.abs((int) System.currentTimeMillis()));
-    }
-
-    public void markInitializeStarted() {
-        this.initializeStarted.set(true);
-    }
-
-    public boolean isInitializeStarted() {
-        return initializeStarted.get();
     }
 
     public String getKey() {
@@ -123,18 +113,6 @@ public class TcpIoLoop {
         return status.get();
     }
 
-    public TcpIoLoopFlowTask getFlowTask() {
-        return flowTask;
-    }
-
-    public OutputStream getRemoteToDeviceStream() {
-        return remoteToDeviceStream;
-    }
-
-    public void setFlowTask(TcpIoLoopFlowTask flowTask) {
-        this.flowTask = flowTask;
-    }
-
     public long getAccumulateRemoteToDeviceAcknowledgementNumber() {
         return accumulateRemoteToDeviceAcknowledgementNumber.get();
     }
@@ -171,10 +149,6 @@ public class TcpIoLoop {
         return accumulateWindowBytes.get();
     }
 
-    public Queue<IpPacket> getDeviceInputQueue() {
-        return deviceInputQueue;
-    }
-
     public void setConcreteWindowSizeInByte(int concreteWindowSizeInByte) {
         this.concreteWindowSizeInByte = concreteWindowSizeInByte;
     }
@@ -191,11 +165,9 @@ public class TcpIoLoop {
         delayDestroyExecutor.schedule(() -> {
             this.container.remove(this.getKey());
             this.concreteWindowSizeInByte = 0;
-            this.initializeStarted.set(false);
             this.status.set(TcpIoLoopStatus.CLOSED);
             this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
             this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
-            this.deviceInputQueue.clear();
             this.accumulateWindowBytes.set(0);
             if (this.remoteChannel.get() != null) {
                 if (this.remoteChannel.get().isOpen()) {
@@ -217,10 +189,8 @@ public class TcpIoLoop {
                 ", status=" + status +
                 ", mss=" + mss +
                 ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
-                ", initializeStarted=" + initializeStarted +
                 ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
-                ", deviceInputQueue = (size:" + deviceInputQueue.size() + ")" +
                 ", accumulateWindowBytes = " + this.accumulateWindowBytes +
                 ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
                 ", accumulateRemoteToDeviceAcknowledgementNumber = " +

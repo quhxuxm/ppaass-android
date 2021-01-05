@@ -12,7 +12,6 @@ import io.netty.buffer.Unpooled;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetAddress;
 
 class TcpIoLoopRemoteToDeviceWriter {
     public static final TcpIoLoopRemoteToDeviceWriter INSTANCE = new TcpIoLoopRemoteToDeviceWriter();
@@ -39,8 +38,8 @@ class TcpIoLoopRemoteToDeviceWriter {
         return null;
     }
 
-    public IpPacket buildSynAck(InetAddress sourceAddress, int sourcePort,
-                                InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+    public IpPacket buildSynAck(byte[] sourceAddress, int sourcePort,
+                                byte[] destinationAddress, int destinationPort, long sequenceNumber,
                                 long acknowledgementNumber, int mss) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         ByteBuf mssByteBuf = Unpooled.buffer();
@@ -52,8 +51,8 @@ class TcpIoLoopRemoteToDeviceWriter {
                 sequenceNumber, acknowledgementNumber);
     }
 
-    public IpPacket buildAck(InetAddress sourceAddress, int sourcePort,
-                             InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+    public IpPacket buildAck(byte[] sourceAddress, int sourcePort,
+                             byte[] destinationAddress, int destinationPort, long sequenceNumber,
                              long acknowledgementNumber, byte[] data) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.ack(true).data(data);
@@ -61,8 +60,8 @@ class TcpIoLoopRemoteToDeviceWriter {
                 sequenceNumber, acknowledgementNumber);
     }
 
-    public IpPacket buildPshAck(InetAddress sourceAddress, int sourcePort,
-                                InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+    public IpPacket buildPshAck(byte[] sourceAddress, int sourcePort,
+                                byte[] destinationAddress, int destinationPort, long sequenceNumber,
                                 long acknowledgementNumber, byte[] data) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder
@@ -71,8 +70,8 @@ class TcpIoLoopRemoteToDeviceWriter {
                 sequenceNumber, acknowledgementNumber);
     }
 
-    public IpPacket buildRst(InetAddress sourceAddress, int sourcePort,
-                             InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+    public IpPacket buildRst(byte[] sourceAddress, int sourcePort,
+                             byte[] destinationAddress, int destinationPort, long sequenceNumber,
                              long acknowledgementNumber) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.rst(true);
@@ -80,8 +79,8 @@ class TcpIoLoopRemoteToDeviceWriter {
                 sequenceNumber, acknowledgementNumber);
     }
 
-    public IpPacket buildFin(InetAddress sourceAddress, int sourcePort,
-                             InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+    public IpPacket buildFin(byte[] sourceAddress, int sourcePort,
+                             byte[] destinationAddress, int destinationPort, long sequenceNumber,
                              long acknowledgementNumber) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.fin(true);
@@ -89,8 +88,8 @@ class TcpIoLoopRemoteToDeviceWriter {
                 sequenceNumber, acknowledgementNumber);
     }
 
-    public IpPacket buildFinAck(InetAddress sourceAddress, int sourcePort,
-                                InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+    public IpPacket buildFinAck(byte[] sourceAddress, int sourcePort,
+                                byte[] destinationAddress, int destinationPort, long sequenceNumber,
                                 long acknowledgementNumber) {
         TcpPacketBuilder tcpPacketBuilder = new TcpPacketBuilder();
         tcpPacketBuilder.fin(true).ack(true);
@@ -98,14 +97,14 @@ class TcpIoLoopRemoteToDeviceWriter {
                 sequenceNumber, acknowledgementNumber);
     }
 
-    private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder, InetAddress sourceAddress, int sourcePort,
-                                   InetAddress destinationAddress, int destinationPort, long sequenceNumber,
+    private IpPacket buildIpPacket(TcpPacketBuilder tcpPacketBuilder, byte[] sourceAddress, int sourcePort,
+                                   byte[] destinationAddress, int destinationPort, long sequenceNumber,
                                    long acknowledgementNumber) {
         short identification = (short) (Math.random() * 10000);
         IpV4Header ipV4Header =
                 new IpV4HeaderBuilder()
-                        .destinationAddress(destinationAddress.getAddress())
-                        .sourceAddress(sourceAddress.getAddress())
+                        .destinationAddress(destinationAddress)
+                        .sourceAddress(sourceAddress)
                         .protocol(IpDataProtocol.TCP).identification(identification).build();
         tcpPacketBuilder
                 .sequenceNumber(sequenceNumber)

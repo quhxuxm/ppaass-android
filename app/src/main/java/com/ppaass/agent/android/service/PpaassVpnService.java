@@ -51,8 +51,11 @@ public class PpaassVpnService extends VpnService {
             Builder vpnBuilder = new Builder();
             vpnBuilder.addAddress(VPN_ADDRESS, 32);
             vpnBuilder.addRoute(VPN_ROUTE, 0);
+            vpnBuilder.setMtu(1500);
+            vpnBuilder.setBlocking(true);
+            vpnBuilder.setSession(getString(R.string.app_name));
             this.vpnInterface =
-                    vpnBuilder.setSession(getString(R.string.app_name)).establish();
+                    vpnBuilder.establish();
             final FileDescriptor vpnFileDescriptor = vpnInterface.getFileDescriptor();
             this.vpnInputStream = new FileInputStream(vpnFileDescriptor);
             this.vpnOutputStream = new FileOutputStream(vpnFileDescriptor);
