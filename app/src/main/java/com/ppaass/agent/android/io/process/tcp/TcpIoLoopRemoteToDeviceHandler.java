@@ -47,10 +47,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
     @Override
     public void channelActive(ChannelHandlerContext remoteChannelContext) throws Exception {
         Channel remoteChannel = remoteChannelContext.channel();
-        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
-        if (tcpIoLoop.getTcpWindow().size() == 0) {
-            remoteChannel.read();
-        }
+        remoteChannel.read();
     }
 
     @Override
@@ -102,20 +99,20 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
         final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
         Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
                 "Exception for tcp loop remote channel, tcp loop=" + tcpIoLoop, cause);
-        if (cause.getMessage() != null && cause.getMessage().contains("Connection reset by peer")) {
-            Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
-                    "Connection reset, tcp loop=" + tcpIoLoop);
-            IpPacket ipPacketWroteToDevice =
-                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
-                            tcpIoLoop.getDestinationAddress().getAddress(),
-                            tcpIoLoop.getDestinationPort(),
-                            tcpIoLoop.getSourceAddress().getAddress(),
-                            tcpIoLoop.getSourcePort(),
-                            tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
-                            tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
-            TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
-                            remoteToDeviceStream);
-        }
+//        if (cause.getMessage() != null && cause.getMessage().contains("Connection reset by peer")) {
+//            Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
+//                    "Connection reset, tcp loop=" + tcpIoLoop);
+//            IpPacket ipPacketWroteToDevice =
+//                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
+//                            tcpIoLoop.getDestinationAddress().getAddress(),
+//                            tcpIoLoop.getDestinationPort(),
+//                            tcpIoLoop.getSourceAddress().getAddress(),
+//                            tcpIoLoop.getSourcePort(),
+//                            tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
+//                            tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
+//            TcpIoLoopRemoteToDeviceWriter.INSTANCE
+//                    .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
+//                            remoteToDeviceStream);
+//        }
     }
 }
