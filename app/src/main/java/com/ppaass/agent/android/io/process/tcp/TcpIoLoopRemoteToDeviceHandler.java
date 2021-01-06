@@ -45,6 +45,15 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
 //    }
 
     @Override
+    public void channelActive(ChannelHandlerContext remoteChannelContext) throws Exception {
+        Channel remoteChannel = remoteChannelContext.channel();
+        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
+        if (tcpIoLoop.getTcpWindow().size() == 0) {
+            remoteChannel.read();
+        }
+    }
+
+    @Override
     public void channelRead(ChannelHandlerContext remoteChannelContext, Object remoteMessage)
             throws Exception {
         Channel remoteChannel = remoteChannelContext.channel();
@@ -67,6 +76,8 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                             tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
                             tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber()
                             , ackData);
+            tcpIoLoop.getTcpWindow()
+                    .put(tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber() + length, ipPacketWroteToDevice);
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
@@ -75,6 +86,14 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
         }
         ReferenceCountUtil.release(remoteMessage);
     }
+//    @Override
+//    public void channelReadComplete(ChannelHandlerContext remoteChannelContext) throws Exception {
+//        Channel remoteChannel = remoteChannelContext.channel();
+//        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
+//        if (tcpIoLoop.getRemoteSequenceToConfirm().size() == 0) {
+//            remoteChannel.read();
+//        }
+//    }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext remoteChannelContext, Throwable cause) throws Exception {

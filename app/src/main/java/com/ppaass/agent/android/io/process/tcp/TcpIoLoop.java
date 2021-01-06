@@ -1,14 +1,12 @@
 package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
+import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import io.netty.channel.Channel;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +25,7 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
+    private final ConcurrentMap<Long, IpPacket> tcpWindow;
 
     public TcpIoLoop(String key, long updateTime, byte[] sourceAddressInBytes, byte[] destinationAddressInBytes,
                      int sourcePort,
@@ -53,6 +52,7 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
         this.remoteChannel = new AtomicReference<>(null);
         this.concreteWindowSizeInByte = 0;
+        this.tcpWindow = new ConcurrentHashMap<>();
     }
 
     public long getUpdateTime() {
@@ -143,6 +143,10 @@ public class TcpIoLoop {
         this.concreteWindowSizeInByte = concreteWindowSizeInByte;
     }
 
+    public ConcurrentMap<Long, IpPacket> getTcpWindow() {
+        return tcpWindow;
+    }
+
     public void destroy() {
         delayDestroyExecutor.schedule(() -> {
             this.container.remove(this.getKey());
@@ -150,6 +154,7 @@ public class TcpIoLoop {
             this.status.set(TcpIoLoopStatus.CLOSED);
             this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
             this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
+            this.tcpWindow.clear();
             if (this.remoteChannel.get() != null) {
                 if (this.remoteChannel.get().isOpen()) {
                     this.remoteChannel.get().close();
@@ -172,6 +177,7 @@ public class TcpIoLoop {
                 ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
                 ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
+                ", remoteSequenceToConfirm = " + tcpWindow +
                 ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
                 ", accumulateRemoteToDeviceAcknowledgementNumber = " +
                 this.accumulateRemoteToDeviceAcknowledgementNumber +
