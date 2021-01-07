@@ -92,8 +92,13 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
     public void channelReadComplete(ChannelHandlerContext remoteChannelContext) throws Exception {
         Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
-        if (tcpIoLoop.getTcpWindow().size() == 0) {
-            remoteChannel.read();
+        if (tcpIoLoop == null) {
+            return;
+        }
+        synchronized (tcpIoLoop) {
+            if (tcpIoLoop.getTcpWindow().size() == 0) {
+                remoteChannel.read();
+            }
         }
     }
 

@@ -74,12 +74,12 @@ public class TcpIoLoopFlowProcessor {
         private final TcpIoLoop tcpIoLoop;
         private final TcpHeader inputTcpHeader;
         private final IpV4Header inputIpV4Header;
-        private final ByteBuf dataWriteToRemote;
+        private final byte[] dataWriteToRemote;
         private final OutputStream remoteToDeviceStream;
 
         private WriteToRemoteListener(TcpIoLoop tcpIoLoop,
                                       TcpHeader inputTcpHeader,
-                                      IpV4Header inputIpV4Header, ByteBuf dataWriteToRemote,
+                                      IpV4Header inputIpV4Header, byte[]  dataWriteToRemote,
                                       OutputStream remoteToDeviceStream) {
             this.tcpIoLoop = tcpIoLoop;
             this.inputTcpHeader = inputTcpHeader;
@@ -101,12 +101,12 @@ public class TcpIoLoopFlowProcessor {
                                     inputTcpHeader.getDestinationPort(),
                                     inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort(),
                                     inputTcpHeader.getAcknowledgementNumber(),
-                                    inputTcpHeader.getSequenceNumber() + dataWriteToRemote.readableBytes());
+                                    inputTcpHeader.getSequenceNumber() + dataWriteToRemote.length);
                     TcpIoLoopRemoteToDeviceWriter.INSTANCE
                             .writeIpPacketToDevice(reset, this.tcpIoLoop.getKey(), remoteToDeviceStream);
                     return;
                 }
-                tcpIoLoop.getRemoteChannel().writeAndFlush(dataWriteToRemote).addListener(this);
+                tcpIoLoop.getRemoteChannel().writeAndFlush(Unpooled.wrappedBuffer(dataWriteToRemote)).addListener(this);
                 retryTimes++;
                 return;
             }
@@ -130,7 +130,7 @@ public class TcpIoLoopFlowProcessor {
         remoteBootstrap.group(new NioEventLoopGroup(32));
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
-        remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+        remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, false);
         remoteBootstrap.option(ChannelOption.AUTO_READ, false);
         remoteBootstrap.option(ChannelOption.AUTO_CLOSE, false);
         remoteBootstrap.option(ChannelOption.TCP_NODELAY, true);
@@ -456,8 +456,9 @@ public class TcpIoLoopFlowProcessor {
                             inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(dataByteBuf));
             tcpIoLoop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(data.length);
+            byte[] dataMaybeResend=ByteBufUtil.getBytes(dataByteBuf);
             tcpIoLoop.getRemoteChannel().writeAndFlush(dataByteBuf).addListener(
-                    new WriteToRemoteListener(tcpIoLoop, inputTcpHeader, inputIpV4Header, dataByteBuf,
+                    new WriteToRemoteListener(tcpIoLoop, inputTcpHeader, inputIpV4Header, dataMaybeResend,
                             remoteToDeviceStream));
             return;
         }
