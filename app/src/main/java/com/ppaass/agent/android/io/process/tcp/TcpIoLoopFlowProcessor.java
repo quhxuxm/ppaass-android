@@ -69,6 +69,51 @@ public class TcpIoLoopFlowProcessor {
         }
     }
 
+    private static class WriteToRemoteListener implements ChannelFutureListener {
+        private int retryTimes = 0;
+        private final TcpIoLoop tcpIoLoop;
+        private final TcpHeader inputTcpHeader;
+        private final IpV4Header inputIpV4Header;
+        private final ByteBuf dataWriteToRemote;
+        private final OutputStream remoteToDeviceStream;
+
+        private WriteToRemoteListener(TcpIoLoop tcpIoLoop,
+                                      TcpHeader inputTcpHeader,
+                                      IpV4Header inputIpV4Header, ByteBuf dataWriteToRemote,
+                                      OutputStream remoteToDeviceStream) {
+            this.tcpIoLoop = tcpIoLoop;
+            this.inputTcpHeader = inputTcpHeader;
+            this.inputIpV4Header = inputIpV4Header;
+            this.dataWriteToRemote = dataWriteToRemote;
+            this.remoteToDeviceStream = remoteToDeviceStream;
+        }
+
+        @Override
+        public void operationComplete(ChannelFuture future) throws Exception {
+            if (!future.isSuccess()) {
+                if (retryTimes >= 3 || !tcpIoLoop.getRemoteChannel().isOpen()) {
+                    Log.e(TcpIoLoopFlowProcessor.class.getName(),
+                            "Fail to write request to remote, reset connection, tcp header =" +
+                                    inputTcpHeader +
+                                    ", tcp loop = " + tcpIoLoop);
+                    IpPacket reset = TcpIoLoopRemoteToDeviceWriter.INSTANCE
+                            .buildRst(inputIpV4Header.getDestinationAddress(),
+                                    inputTcpHeader.getDestinationPort(),
+                                    inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort(),
+                                    inputTcpHeader.getAcknowledgementNumber(),
+                                    inputTcpHeader.getSequenceNumber() + dataWriteToRemote.readableBytes());
+                    TcpIoLoopRemoteToDeviceWriter.INSTANCE
+                            .writeIpPacketToDevice(reset, this.tcpIoLoop.getKey(), remoteToDeviceStream);
+                    return;
+                }
+                tcpIoLoop.getRemoteChannel().writeAndFlush(dataWriteToRemote).addListener(this);
+                retryTimes++;
+                return;
+            }
+            tcpIoLoop.getRemoteChannel().read();
+        }
+    }
+
     public TcpIoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream) {
         this.remoteBootstrap = this.createRemoteBootstrap(vpnService, remoteToDeviceStream);
         this.tcpIoLoops = new ConcurrentHashMap<>();
@@ -342,7 +387,7 @@ public class TcpIoLoopFlowProcessor {
         }
         if (inputTcpHeader.isFin()) {
             Log.d(TcpIoLoopFlowProcessor.class.getName(),
-                    "RECEIVE [FIN ACK], data size = "+data.length+", tcp header =" + inputTcpHeader +
+                    "RECEIVE [FIN ACK], data size = " + data.length + ", tcp header =" + inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop);
             tcpIoLoop.setStatus(TcpIoLoopStatus.CLOSE_WAIT);
             tcpIoLoop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(1);
@@ -412,34 +457,8 @@ public class TcpIoLoopFlowProcessor {
                             ", tcp loop = " + tcpIoLoop + ", DATA: \n" + ByteBufUtil.prettyHexDump(dataByteBuf));
             tcpIoLoop.increaseAccumulateRemoteToDeviceAcknowledgementNumber(data.length);
             tcpIoLoop.getRemoteChannel().writeAndFlush(dataByteBuf).addListener(
-                    new ChannelFutureListener() {
-                        private int retryTimes = 0;
-
-                        @Override
-                        public void operationComplete(ChannelFuture future) throws Exception {
-                            if (!future.isSuccess()) {
-                                if (retryTimes >= 3 || !tcpIoLoop.getRemoteChannel().isOpen()) {
-                                    Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                                            "Fail to write request to remote, reset connection, tcp header =" +
-                                                    inputTcpHeader +
-                                                    ", tcp loop = " + tcpIoLoop);
-                                    IpPacket reset = TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                                            .buildRst(inputIpV4Header.getDestinationAddress(),
-                                                    inputTcpHeader.getDestinationPort(),
-                                                    inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort(),
-                                                    inputTcpHeader.getAcknowledgementNumber(),
-                                                    inputTcpHeader.getSequenceNumber() + dataByteBuf.readableBytes());
-                                    TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                                            .writeIpPacketToDevice(reset, tcpIoLoopKey, remoteToDeviceStream);
-                                    return;
-                                }
-                                tcpIoLoop.getRemoteChannel().writeAndFlush(dataByteBuf).syncUninterruptibly();
-                                retryTimes++;
-                                return;
-                            }
-                            tcpIoLoop.getRemoteChannel().read();
-                        }
-                    });
+                    new WriteToRemoteListener(tcpIoLoop, inputTcpHeader, inputIpV4Header, dataByteBuf,
+                            remoteToDeviceStream));
             return;
         }
         if (TcpIoLoopStatus.CLOSE_WAIT == tcpIoLoop.getStatus()) {
