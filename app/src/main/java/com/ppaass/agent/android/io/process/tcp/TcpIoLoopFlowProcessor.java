@@ -104,6 +104,7 @@ public class TcpIoLoopFlowProcessor {
                                     inputTcpHeader.getSequenceNumber() + dataWriteToRemote.length);
                     TcpIoLoopRemoteToDeviceWriter.INSTANCE
                             .writeIpPacketToDevice(reset, this.tcpIoLoop.getKey(), remoteToDeviceStream);
+                    tcpIoLoop.destroy();
                     return;
                 }
                 tcpIoLoop.getRemoteChannel().writeAndFlush(Unpooled.wrappedBuffer(dataWriteToRemote)).addListener(this);
