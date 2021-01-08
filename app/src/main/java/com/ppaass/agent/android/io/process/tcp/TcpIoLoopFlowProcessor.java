@@ -127,7 +127,7 @@ public class TcpIoLoopFlowProcessor {
 
     private Bootstrap createRemoteBootstrap(VpnService vpnService, OutputStream remoteToDeviceStream) {
         Bootstrap remoteBootstrap = new Bootstrap();
-        remoteBootstrap.group(new NioEventLoopGroup(32));
+        remoteBootstrap.group(new NioEventLoopGroup());
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, false);
@@ -135,7 +135,7 @@ public class TcpIoLoopFlowProcessor {
         remoteBootstrap.option(ChannelOption.AUTO_CLOSE, false);
         remoteBootstrap.option(ChannelOption.TCP_NODELAY, true);
         remoteBootstrap.option(ChannelOption.SO_REUSEADDR, true);
-        remoteBootstrap.option(ChannelOption.SO_LINGER, 1);
+        remoteBootstrap.option(ChannelOption.SO_LINGER, -1);
         remoteBootstrap.option(ChannelOption.SO_RCVBUF, 65536);
         remoteBootstrap.option(ChannelOption.SO_SNDBUF, 65536);
         remoteBootstrap.handler(new ChannelInitializer<SocketChannel>() {
