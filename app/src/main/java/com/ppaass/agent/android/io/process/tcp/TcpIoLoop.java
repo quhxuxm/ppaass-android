@@ -7,7 +7,8 @@ import io.netty.channel.Channel;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -47,7 +48,7 @@ public class TcpIoLoop {
 
         @Override
         public String toString() {
-           TcpPacket tcpPacket=(TcpPacket) ipPacket.getData();
+            TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
             return "TcpIoLoopWindowIpPacketWrapper{" +
                     "sequence=" + tcpPacket.getHeader().getSequenceNumber() +
                     ", ack=" + tcpPacket.getHeader().getAcknowledgementNumber() +
@@ -183,7 +184,9 @@ public class TcpIoLoop {
 
     public void destroy() {
         this.alive = false;
-        this.container.remove(this.getKey());
+        synchronized (this.container) {
+            this.container.remove(this.getKey());
+        }
         this.concreteWindowSizeInByte = 0;
         this.status.set(TcpIoLoopStatus.CLOSED);
         this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
