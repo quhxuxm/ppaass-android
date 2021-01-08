@@ -5,7 +5,9 @@ import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
 import io.netty.channel.Channel;
 
+import java.io.IOException;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -22,12 +24,12 @@ public class TcpIoLoop {
     private final AtomicReference<TcpIoLoopStatus> status;
     private int mss;
     private int concreteWindowSizeInByte;
-    private final AtomicReference<Channel> remoteChannel;
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
     private final ConcurrentMap<Long, TcpIoLoopWindowIpPacketWrapper> tcpWindow;
     private boolean alive;
+    private  AtomicReference<Socket> remoteSocket;
 
     public static class TcpIoLoopWindowIpPacketWrapper {
         private final IpPacket ipPacket;
@@ -80,10 +82,18 @@ public class TcpIoLoop {
         this.mss = -1;
         this.accumulateRemoteToDeviceSequenceNumber = new AtomicLong(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
-        this.remoteChannel = new AtomicReference<>(null);
+        this.remoteSocket = new AtomicReference<>(null);
         this.concreteWindowSizeInByte = 0;
         this.tcpWindow = new ConcurrentHashMap<>();
         this.alive = false;
+    }
+
+    public void setRemoteSocket(Socket remoteSocket) {
+        this.remoteSocket.set(remoteSocket);
+    }
+
+    public Socket getRemoteSocket() {
+        return remoteSocket.get();
     }
 
     public long getUpdateTime() {
@@ -126,13 +136,7 @@ public class TcpIoLoop {
         return destinationPort;
     }
 
-    public void setRemoteChannel(Channel remoteChannel) {
-        this.remoteChannel.set(remoteChannel);
-    }
 
-    public Channel getRemoteChannel() {
-        return remoteChannel.get();
-    }
 
     public void setStatus(TcpIoLoopStatus status) {
         this.status.set(status);
@@ -192,9 +196,11 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
         this.tcpWindow.clear();
-        if (this.remoteChannel.get() != null) {
-            if (this.remoteChannel.get().isOpen()) {
-                this.remoteChannel.get().close();
+        if (this.remoteSocket.get() != null) {
+            try {
+                remoteSocket.get().close();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         }
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
@@ -212,7 +218,7 @@ public class TcpIoLoop {
                 ", status=" + status +
                 ", mss=" + mss +
                 ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
-                ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
+                ", remoteSocket =" + (remoteSocket.get() == null ? "" : remoteSocket.get().toString()) +
                 ", container = (size:" + container.size() + ")" +
                 ", tcpWindow = " + tcpWindow +
                 ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
