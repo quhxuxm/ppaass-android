@@ -9,6 +9,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,6 +28,7 @@ public class TcpIoLoop {
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
     private final ConcurrentMap<Long, TcpIoLoopWindowIpPacketWrapper> tcpWindow;
+    private Future<?> destroyFuture;
 
     public static class TcpIoLoopWindowIpPacketWrapper {
         private final IpPacket ipPacket;
@@ -190,6 +192,14 @@ public class TcpIoLoop {
         return tcpWindow;
     }
 
+    public void setDestroyFuture(Future<?> destroyFuture) {
+        this.destroyFuture = destroyFuture;
+    }
+
+    public Future<?> getDestroyFuture() {
+        return destroyFuture;
+    }
+
     public void destroy() {
         synchronized (this.container) {
             this.container.remove(this.getKey());
@@ -203,6 +213,9 @@ public class TcpIoLoop {
             if (this.remoteChannel.get().isOpen()) {
                 this.remoteChannel.get().close();
             }
+        }
+        if(this.destroyFuture!=null){
+            this.destroyFuture.cancel(true);
         }
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
     }

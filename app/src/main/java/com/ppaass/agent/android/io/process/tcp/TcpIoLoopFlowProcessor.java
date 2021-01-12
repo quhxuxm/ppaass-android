@@ -375,10 +375,6 @@ public class TcpIoLoopFlowProcessor {
                             "status=ESTABLISHED, size=0)], tcp header =" +
                             inputTcpHeader +
                             ", tcp loop = " + tcpIoLoop);
-            Log.d(TcpIoLoopFlowProcessor.class.getName(),
-                    "ALL REMOTE SEQUENCE CONFIRMED on CLOSE_WAIT, read from remote, tcp header =" +
-                            inputTcpHeader +
-                            ", tcp loop = " + tcpIoLoop);
             tcpIoLoop.getRemoteChannel().close().addListener(future -> {
                 tcpIoLoop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
                 IpPacket finAck = TcpIoLoopRemoteToDeviceWriter.INSTANCE
@@ -416,8 +412,9 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void delayDestroyTcpIoLoop(TcpIoLoop tcpIoLoop) {
-        this.delayCloseTcpIoLoopThreadPool
+        ScheduledFuture<?> destroyFuture = this.delayCloseTcpIoLoopThreadPool
                 .schedule(tcpIoLoop::destroy, DEFAULT_DELAY_CLOSE_TIME, TimeUnit.SECONDS);
+        tcpIoLoop.setDestroyFuture(destroyFuture);
     }
 
     private void doRst(IpPacket inputIpPacket) {

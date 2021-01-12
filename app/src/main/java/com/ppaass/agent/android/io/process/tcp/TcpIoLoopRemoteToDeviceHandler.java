@@ -34,7 +34,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
         TcpIoLoopRemoteToDeviceWriter.INSTANCE
                 .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                         remoteToDeviceStream);
-        Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
+        Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
                 "Remote connection closed, close device connection, tcp loop=" +
                         tcpIoLoop);
     }
