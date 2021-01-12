@@ -123,7 +123,8 @@ class TcpIoLoopRemoteToDeviceWriter {
         return ipPacketBuilder.build();
     }
 
-    public void writeIpPacketToDevice(IpPacket ipPacket, String loopKey, OutputStream remoteToDeviceStream) {
+    public void writeIpPacketToDevice(String actionId, IpPacket ipPacket, String loopKey,
+                                      OutputStream remoteToDeviceStream) {
         try {
             TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
             TcpHeader tcpHeader = tcpPacket.getHeader();
@@ -138,12 +139,14 @@ class TcpIoLoopRemoteToDeviceWriter {
             byte[] tcpData = tcpPacket.getData();
             if (tcpData.length == 0) {
                 Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
-                        "WRITE TO DEVICE [" + packetType + ", NO DATA, size=" + tcpData.length + "], ip packet = " +
+                        "WRITE TO DEVICE [" + actionId + "] [" + packetType + ", NO DATA, size=" + tcpData.length +
+                                "], ip packet = " +
                                 ipPacket +
                                 ", tcp loop key= '" + loopKey + "'");
             } else {
                 Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
-                        "WRITE TO DEVICE [" + packetType + ", size=" + tcpData.length + "], ip packet = " + ipPacket +
+                        "WRITE TO DEVICE [" + actionId + "] [" + packetType + ", size=" + tcpData.length +
+                                "], ip packet = " + ipPacket +
                                 ", tcp loop key= '" + loopKey +
                                 "', DATA:\n" +
                                 ByteBufUtil.prettyHexDump(
@@ -152,7 +155,8 @@ class TcpIoLoopRemoteToDeviceWriter {
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
             remoteToDeviceStream.flush();
         } catch (IOException e) {
-            Log.e(TcpIoLoopRemoteToDeviceWriter.class.getName(), "Fail to write ip packet to app because of exception.",
+            Log.e(TcpIoLoopRemoteToDeviceWriter.class.getName(),
+                    "Fail to write ip packet to app because of exception(" + actionId + ").",
                     e);
         }
     }

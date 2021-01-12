@@ -27,15 +27,16 @@ public class TcpIoLoop {
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
     private final ConcurrentMap<Long, TcpIoLoopWindowIpPacketWrapper> tcpWindow;
-    private boolean alive;
 
     public static class TcpIoLoopWindowIpPacketWrapper {
         private final IpPacket ipPacket;
         private final long insertTime;
+        private int retryTimes;
 
         public TcpIoLoopWindowIpPacketWrapper(IpPacket ipPacket, long insertTime) {
             this.ipPacket = ipPacket;
             this.insertTime = insertTime;
+            this.retryTimes = 0;
         }
 
         public IpPacket getIpPacket() {
@@ -46,14 +47,22 @@ public class TcpIoLoop {
             return insertTime;
         }
 
+        public void increaseRetryTimes() {
+            this.retryTimes++;
+        }
+
+        public int getRetryTimes() {
+            return retryTimes;
+        }
+
         @Override
         public String toString() {
             TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
-            return "TcpIoLoopWindowIpPacketWrapper{" +
-                    "sequence=" + tcpPacket.getHeader().getSequenceNumber() +
-                    ", ack=" + tcpPacket.getHeader().getAcknowledgementNumber() +
-                    ", insertTime=" + insertTime +
-                    '}';
+            return "\n{" + "\n" +
+                    "sequence=" + tcpPacket.getHeader().getSequenceNumber() + ",\n" +
+                    "ack=" + tcpPacket.getHeader().getAcknowledgementNumber() + ",\n" +
+                    "insertTime=" + insertTime + "\n" +
+                    "}\n";
         }
     }
 
@@ -83,7 +92,6 @@ public class TcpIoLoop {
         this.remoteChannel = new AtomicReference<>(null);
         this.concreteWindowSizeInByte = 0;
         this.tcpWindow = new ConcurrentHashMap<>();
-        this.alive = false;
     }
 
     public long getUpdateTime() {
@@ -174,16 +182,15 @@ public class TcpIoLoop {
         this.concreteWindowSizeInByte = concreteWindowSizeInByte;
     }
 
+    public int getConcreteWindowSizeInByte() {
+        return concreteWindowSizeInByte;
+    }
+
     public ConcurrentMap<Long, TcpIoLoopWindowIpPacketWrapper> getTcpWindow() {
         return tcpWindow;
     }
 
-    public boolean isAlive() {
-        return alive;
-    }
-
     public void destroy() {
-        this.alive = false;
         synchronized (this.container) {
             this.container.remove(this.getKey());
         }
@@ -204,7 +211,6 @@ public class TcpIoLoop {
     public String toString() {
         return "TcpIoLoop{" +
                 "key='" + key + '\'' +
-                ", alive='" + alive + '\'' +
                 ", sourceAddress=" + sourceAddress +
                 ", destinationAddress=" + destinationAddress +
                 ", sourcePort=" + sourcePort +

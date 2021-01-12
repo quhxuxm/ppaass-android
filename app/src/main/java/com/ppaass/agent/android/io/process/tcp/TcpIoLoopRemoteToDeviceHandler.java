@@ -2,6 +2,7 @@ package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
 import com.ppaass.agent.android.io.protocol.ip.IpPacket;
+import com.ppaass.kt.common.SerializerKt;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.Channel;
@@ -16,33 +17,27 @@ import java.io.OutputStream;
 public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter {
     public TcpIoLoopRemoteToDeviceHandler() {
     }
-//    @Override
-//    public void channelInactive(ChannelHandlerContext remoteChannelContext) throws Exception {
-//        Channel remoteChannel = remoteChannelContext.channel();
-//        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
-//        final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
-//        if (tcpIoLoop.getStatus() != TcpIoLoopStatus.ESTABLISHED) {
-//            Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
-//                    "Remote channel closed, and tcp loop also NOT in ESTABLISHED, nothing to do, tcp loop =" +
-//                            tcpIoLoop);
-//            return;
-//        }
-//        IpPacket ipPacketWroteToDevice =
-//                TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFin(
-//                        tcpIoLoop.getDestinationAddress().getAddress(),
-//                        tcpIoLoop.getDestinationPort(),
-//                        tcpIoLoop.getSourceAddress().getAddress(),
-//                        tcpIoLoop.getSourcePort(),
-//                        tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
-//                        tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
-//        TcpIoLoopRemoteToDeviceWriter.INSTANCE
-//                .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
-//                        remoteToDeviceStream);
-//        tcpIoLoop.setStatus(TcpIoLoopStatus.FIN_WAITE1);
-//        Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
-//                "Remote connection closed, but tcp loop still in ESTABLISHED, close the tcp loop and switch status to FIN_WAITE1, tcp loop=" +
-//                        tcpIoLoop);
-//    }
+
+    @Override
+    public void channelInactive(ChannelHandlerContext remoteChannelContext) throws Exception {
+        Channel remoteChannel = remoteChannelContext.channel();
+        final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
+        final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
+        IpPacket ipPacketWroteToDevice =
+                TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFinAck(
+                        tcpIoLoop.getDestinationAddress().getAddress(),
+                        tcpIoLoop.getDestinationPort(),
+                        tcpIoLoop.getSourceAddress().getAddress(),
+                        tcpIoLoop.getSourcePort(),
+                        tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
+                        tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
+        TcpIoLoopRemoteToDeviceWriter.INSTANCE
+                .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
+                        remoteToDeviceStream);
+        Log.e(TcpIoLoopRemoteToDeviceHandler.class.getName(),
+                "Remote connection closed, close device connection, tcp loop=" +
+                        tcpIoLoop);
+    }
 
     @Override
     public void channelActive(ChannelHandlerContext remoteChannelContext) throws Exception {
@@ -53,6 +48,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
     @Override
     public void channelRead(ChannelHandlerContext remoteChannelContext, Object remoteMessage)
             throws Exception {
+        String remoteActionId = SerializerKt.generateUuid();
         Channel remoteChannel = remoteChannelContext.channel();
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
@@ -64,6 +60,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                 length = remoteMessageByteBuf.readableBytes();
             }
             byte[] ackData = ByteBufUtil.getBytes(remoteMessageByteBuf.readBytes(length));
+            long remoteToDeviceSequenceNumberBeforeIncrease = tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber();
             IpPacket ipPacketWroteToDevice =
                     TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildPshAck(
                             tcpIoLoop.getDestinationAddress().getAddress(),
@@ -73,17 +70,14 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                             tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
                             tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber()
                             , ackData);
-            TcpIoLoop.TcpIoLoopWindowIpPacketWrapper windowIpPacketWrapper =
-                    new TcpIoLoop.TcpIoLoopWindowIpPacketWrapper(ipPacketWroteToDevice, System.currentTimeMillis());
-            synchronized (tcpIoLoop) {
-                tcpIoLoop.getTcpWindow()
-                        .put(tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber() + length, windowIpPacketWrapper);
-            }
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
+                    .writeIpPacketToDevice(remoteActionId, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
             //Update sequence number after the data sent to device.
             tcpIoLoop.increaseAccumulateRemoteToDeviceSequenceNumber(length);
+            Log.d(TcpIoLoopFlowProcessor.class.getName(),
+                    "After send remote data to device [" + remoteActionId + "], rtd sequence before increase = " +
+                            remoteToDeviceSequenceNumberBeforeIncrease + ", tcp loop = " + tcpIoLoop);
         }
         ReferenceCountUtil.release(remoteMessage);
     }
@@ -95,11 +89,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
         if (tcpIoLoop == null) {
             return;
         }
-        synchronized (tcpIoLoop) {
-            if (tcpIoLoop.getTcpWindow().size() == 0) {
-                remoteChannel.read();
-            }
-        }
+        tcpIoLoop.getRemoteChannel().read();
     }
 
     @Override
@@ -121,7 +111,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                             tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
                             tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(ipPacketWroteToDevice, tcpIoLoop.getKey(),
+                    .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
             tcpIoLoop.destroy();
         }
