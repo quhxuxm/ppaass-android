@@ -7,7 +7,8 @@ import io.netty.channel.Channel;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
@@ -27,7 +28,7 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
-    private final ConcurrentMap<Long, TcpIoLoopWindowIpPacketWrapper> tcpWindow;
+    private final Queue<TcpIoLoopWindowIpPacketWrapper> tcpWindow;
     private Future<?> destroyFuture;
 
     public static class TcpIoLoopWindowIpPacketWrapper {
@@ -57,12 +58,27 @@ public class TcpIoLoop {
             return retryTimes;
         }
 
+        public long getSequenceNumber() {
+            TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
+            return tcpPacket.getHeader().getSequenceNumber();
+        }
+
+        public long getAcknowledgementNumber() {
+            TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
+            return tcpPacket.getHeader().getAcknowledgementNumber();
+        }
+
+        public int getDataSize() {
+            TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
+            return tcpPacket.getData().length;
+        }
+
         @Override
         public String toString() {
             TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
             return "\n{" + "\n" +
-                    "sequence=" + tcpPacket.getHeader().getSequenceNumber() + ",\n" +
-                    "ack=" + tcpPacket.getHeader().getAcknowledgementNumber() + ",\n" +
+                    "sequenceNumber=" + this.getSequenceNumber() + ",\n" +
+                    "acknowledgementNumber=" + this.getAcknowledgementNumber() + ",\n" +
                     "insertTime=" + insertTime + "\n" +
                     "}\n";
         }
@@ -93,7 +109,7 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
         this.remoteChannel = new AtomicReference<>(null);
         this.concreteWindowSizeInByte = 0;
-        this.tcpWindow = new ConcurrentHashMap<>();
+        this.tcpWindow = new ConcurrentLinkedQueue<>();
     }
 
     public long getUpdateTime() {
@@ -188,7 +204,7 @@ public class TcpIoLoop {
         return concreteWindowSizeInByte;
     }
 
-    public ConcurrentMap<Long, TcpIoLoopWindowIpPacketWrapper> getTcpWindow() {
+    public Queue<TcpIoLoopWindowIpPacketWrapper> getTcpWindow() {
         return tcpWindow;
     }
 
@@ -214,7 +230,7 @@ public class TcpIoLoop {
                 this.remoteChannel.get().close();
             }
         }
-        if(this.destroyFuture!=null){
+        if (this.destroyFuture != null) {
             this.destroyFuture.cancel(true);
         }
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
