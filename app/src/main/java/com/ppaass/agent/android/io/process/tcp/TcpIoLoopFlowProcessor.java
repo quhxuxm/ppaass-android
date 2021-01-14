@@ -345,13 +345,6 @@ public class TcpIoLoopFlowProcessor {
         if (TcpIoLoopStatus.ESTABLISHED == tcpIoLoop.getStatus()) {
             if (data.length == 0) {
                 //A ack for previous remote data
-                tcpIoLoop.getTcpWindow().removeIf(element -> {
-                    long expectDeviceAck = element.getSequenceNumber() + element.getDataSize();
-                    return inputTcpHeader.getAcknowledgementNumber() - expectDeviceAck >= 0;
-                });
-                synchronized (tcpIoLoop) {
-                    tcpIoLoop.notifyAll();
-                }
                 Log.d(TcpIoLoopFlowProcessor.class.getName(),
                         "RECEIVE [ACK, WITHOUT DATA(" + (inputTcpHeader.isPsh() ? "PSH , " : "") +
                                 "status=ESTABLISHED, size=0)], tcp header =" +

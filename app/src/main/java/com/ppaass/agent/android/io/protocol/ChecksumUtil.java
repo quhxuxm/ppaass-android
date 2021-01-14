@@ -1,6 +1,7 @@
 package com.ppaass.agent.android.io.protocol;
 
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 
 public class ChecksumUtil {
     public static final ChecksumUtil INSTANCE = new ChecksumUtil();
@@ -9,26 +10,29 @@ public class ChecksumUtil {
     }
 
     public int checksum(byte[] bytesToDoChecksum) {
-        int checksum = 0;
-        ByteBuffer byteBuffer = ByteBuffer.wrap(bytesToDoChecksum);
+        int sum = 0;
+        ByteBuffer byteBuffer = ByteBuffer.allocate(bytesToDoChecksum.length);
+        byteBuffer.order(ByteOrder.BIG_ENDIAN);
+        byteBuffer.put(bytesToDoChecksum);
+        byteBuffer.flip();
         while (byteBuffer.remaining() > 1) {
             int currentShort = byteBuffer.getShort() & 0xFFFF;
-            checksum += currentShort;
-            while (checksum >> 16 > 0) {
-                int tmp = checksum & 0xFFFF;
-                checksum = (tmp + (checksum >> 16));
+            sum += currentShort;
+            while (sum >> 16 > 0) {
+                int tmp = sum & 0xFFFF;
+                sum = (tmp + (sum >> 16));
             }
         }
         if (byteBuffer.remaining() == 1) {
             byte finalByte = byteBuffer.get();
             int finalShort = finalByte << 8;
-            checksum += finalShort;
-            while (checksum >> 16 > 0) {
-                int tmp = checksum & 0xFFFF;
-                checksum = (tmp + (checksum >> 16));
+            sum += finalShort;
+            while (sum >> 16 > 0) {
+                int tmp = sum & 0xFFFF;
+                sum = (tmp + (sum >> 16));
             }
         }
-        checksum = ~checksum;
-        return checksum;
+        sum = ~sum;
+        return sum & 0xFFFF;
     }
 }

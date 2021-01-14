@@ -7,8 +7,6 @@ import io.netty.channel.Channel;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicLong;
@@ -28,7 +26,6 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
-    private final Queue<TcpIoLoopWindowIpPacketWrapper> tcpWindow;
     private Future<?> destroyFuture;
 
     public static class TcpIoLoopWindowIpPacketWrapper {
@@ -109,7 +106,6 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
         this.remoteChannel = new AtomicReference<>(null);
         this.concreteWindowSizeInByte = 0;
-        this.tcpWindow = new ConcurrentLinkedQueue<>();
     }
 
     public long getUpdateTime() {
@@ -204,10 +200,6 @@ public class TcpIoLoop {
         return concreteWindowSizeInByte;
     }
 
-    public Queue<TcpIoLoopWindowIpPacketWrapper> getTcpWindow() {
-        return tcpWindow;
-    }
-
     public void setDestroyFuture(Future<?> destroyFuture) {
         this.destroyFuture = destroyFuture;
     }
@@ -224,7 +216,6 @@ public class TcpIoLoop {
         this.status.set(TcpIoLoopStatus.CLOSED);
         this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
-        this.tcpWindow.clear();
         if (this.remoteChannel.get() != null) {
             if (this.remoteChannel.get().isOpen()) {
                 this.remoteChannel.get().close();
@@ -249,7 +240,6 @@ public class TcpIoLoop {
                 ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
                 ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
-                ", tcpWindow = " + tcpWindow +
                 ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
                 ", accumulateRemoteToDeviceAcknowledgementNumber = " +
                 this.accumulateRemoteToDeviceAcknowledgementNumber +

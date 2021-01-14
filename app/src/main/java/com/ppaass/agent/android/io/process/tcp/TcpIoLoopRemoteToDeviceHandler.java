@@ -54,15 +54,6 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
         tcpIoLoop.setUpdateTime(System.currentTimeMillis());
         ByteBuf remoteMessageByteBuf = (ByteBuf) remoteMessage;
         while (remoteMessageByteBuf.isReadable()) {
-            TcpIoLoop.TcpIoLoopWindowIpPacketWrapper previousWindowElement = tcpIoLoop.getTcpWindow().peek();
-            if (previousWindowElement != null) {
-                long sequenceToConfirm = previousWindowElement.getSequenceNumber();
-                if (sequenceToConfirm < tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber()) {
-                    synchronized (tcpIoLoop) {
-                        tcpIoLoop.wait();
-                    }
-                }
-            }
             int length = tcpIoLoop.getMss();
             if (remoteMessageByteBuf.readableBytes() < length) {
                 length = remoteMessageByteBuf.readableBytes();
@@ -78,9 +69,6 @@ public class TcpIoLoopRemoteToDeviceHandler extends ChannelInboundHandlerAdapter
                             tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
                             tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber()
                             , ackData);
-            TcpIoLoop.TcpIoLoopWindowIpPacketWrapper windowIpPacketWrapper =
-                    new TcpIoLoop.TcpIoLoopWindowIpPacketWrapper(ipPacketWroteToDevice, System.currentTimeMillis());
-            tcpIoLoop.getTcpWindow().offer(windowIpPacketWrapper);
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(remoteActionId, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
