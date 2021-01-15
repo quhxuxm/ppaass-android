@@ -56,8 +56,8 @@ public class TcpIoLoopFlowProcessor {
         remoteBootstrap.option(ChannelOption.TCP_NODELAY, true);
         remoteBootstrap.option(ChannelOption.SO_REUSEADDR, true);
         remoteBootstrap.option(ChannelOption.SO_LINGER, 1);
-        remoteBootstrap.option(ChannelOption.SO_RCVBUF, 65536);
-        remoteBootstrap.option(ChannelOption.SO_SNDBUF, 65536);
+        remoteBootstrap.option(ChannelOption.SO_RCVBUF, 131072);
+        remoteBootstrap.option(ChannelOption.SO_SNDBUF, 131072);
         remoteBootstrap.handler(new ChannelInitializer<SocketChannel>() {
             @Override
             protected void initChannel(SocketChannel remoteChannel) {
