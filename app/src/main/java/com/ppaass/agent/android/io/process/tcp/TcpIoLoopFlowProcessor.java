@@ -191,38 +191,16 @@ public class TcpIoLoopFlowProcessor {
                 .addListener(
                         (ChannelFutureListener) connectResultFuture -> {
                             if (!connectResultFuture.isSuccess()) {
-                                IpPacket rstPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
-                                        inputIpV4Header.getDestinationAddress(),
-                                        inputTcpHeader.getDestinationPort(),
-                                        inputIpV4Header.getSourceAddress(),
-                                        inputTcpHeader.getSourcePort(),
-                                        inputTcpHeader.getAcknowledgementNumber(),
-                                        inputTcpHeader.getSequenceNumber()
-                                );
                                 Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                                        "RECEIVE [SYN], initialize connection FAIL, rst the packet (1), tcp header ="
+                                        "RECEIVE [SYN], initialize connection FAIL (1), tcp header ="
                                                 + inputTcpHeader + " tcp loop key = " + tcpIoLoopKey);
-                                TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                                        .writeIpPacketToDevice(null, rstPacket, tcpIoLoopKey,
-                                                this.remoteToDeviceStream);
                                 return;
                             }
                             TcpIoLoop tcpIoLoop = getOrCreateTcpIoLoop(inputIpPacket, connectResultFuture.channel());
                             if (tcpIoLoop == null) {
-                                IpPacket rstPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
-                                        inputIpV4Header.getDestinationAddress(),
-                                        inputTcpHeader.getDestinationPort(),
-                                        inputIpV4Header.getSourceAddress(),
-                                        inputTcpHeader.getSourcePort(),
-                                        inputTcpHeader.getAcknowledgementNumber(),
-                                        inputTcpHeader.getSequenceNumber()
-                                );
                                 Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                                        "RECEIVE [SYN], initialize connection FAIL, rst the packet (2), tcp header ="
+                                        "RECEIVE [SYN], initialize connection FAIL (2), tcp header ="
                                                 + inputTcpHeader + " tcp loop key = " + tcpIoLoopKey);
-                                TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                                        .writeIpPacketToDevice(null, rstPacket, tcpIoLoopKey,
-                                                this.remoteToDeviceStream);
                                 return;
                             }
                             tcpIoLoop.setAccumulateRemoteToDeviceAcknowledgementNumber(
@@ -388,7 +366,7 @@ public class TcpIoLoopFlowProcessor {
                     "RECEIVE [ACK on LAST_ACK], close tcp loop, tcp header ="
                             + inputTcpHeader + " tcp loop = " + tcpIoLoop);
             tcpIoLoop.increaseAccumulateRemoteToDeviceSequenceNumber(1);
-            tcpIoLoop.destroy();
+            delayDestroyTcpIoLoop(tcpIoLoop);
             return;
         }
         if (TcpIoLoopStatus.FIN_WAITE1 == tcpIoLoop.getStatus()) {
@@ -430,8 +408,7 @@ public class TcpIoLoopFlowProcessor {
                 "RECEIVE [RST], destroy tcp loop, ip packet =" +
                         inputIpPacket +
                         ", tcp loop = " + tcpIoLoop);
-        tcpIoLoop.getRemoteChannel().close();
-        tcpIoLoop.destroy();
+        delayDestroyTcpIoLoop(tcpIoLoop);
     }
 
     private void doFin(IpPacket inputIpPacket) {
