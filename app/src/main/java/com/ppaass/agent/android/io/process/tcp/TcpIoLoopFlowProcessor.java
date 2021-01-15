@@ -47,7 +47,7 @@ public class TcpIoLoopFlowProcessor {
     private Bootstrap createRemoteBootstrap(VpnService vpnService, OutputStream remoteToDeviceStream) {
         System.setProperty("io.netty.selectorAutoRebuildThreshold", Integer.toString(Integer.MAX_VALUE));
         Bootstrap remoteBootstrap = new Bootstrap();
-        remoteBootstrap.group(new NioEventLoopGroup());
+        remoteBootstrap.group(new NioEventLoopGroup(32));
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
@@ -193,39 +193,37 @@ public class TcpIoLoopFlowProcessor {
                 .addListener(
                         (ChannelFutureListener) connectResultFuture -> {
                             if (!connectResultFuture.isSuccess()) {
-                                IpPacket ackPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildAck(
+                                IpPacket rstPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
                                         inputIpV4Header.getDestinationAddress(),
                                         inputTcpHeader.getDestinationPort(),
                                         inputIpV4Header.getSourceAddress(),
                                         inputTcpHeader.getSourcePort(),
                                         inputTcpHeader.getAcknowledgementNumber(),
-                                        inputTcpHeader.getSequenceNumber(),
-                                        null
+                                        inputTcpHeader.getSequenceNumber()
                                 );
                                 Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                                        "RECEIVE [SYN], initialize connection FAIL, ack and ignore the packet (1), tcp header ="
+                                        "RECEIVE [SYN], initialize connection FAIL, rst the packet (1), tcp header ="
                                                 + inputTcpHeader + " tcp loop key = " + tcpIoLoopKey);
                                 TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                                        .writeIpPacketToDevice(null, ackPacket, tcpIoLoopKey,
+                                        .writeIpPacketToDevice(null, rstPacket, tcpIoLoopKey,
                                                 this.remoteToDeviceStream);
                                 return;
                             }
                             TcpIoLoop tcpIoLoop = getOrCreateTcpIoLoop(inputIpPacket, connectResultFuture.channel());
                             if (tcpIoLoop == null) {
-                                IpPacket ackPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildAck(
+                                IpPacket rstPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
                                         inputIpV4Header.getDestinationAddress(),
                                         inputTcpHeader.getDestinationPort(),
                                         inputIpV4Header.getSourceAddress(),
                                         inputTcpHeader.getSourcePort(),
                                         inputTcpHeader.getAcknowledgementNumber(),
-                                        inputTcpHeader.getSequenceNumber(),
-                                        null
+                                        inputTcpHeader.getSequenceNumber()
                                 );
                                 Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                                        "RECEIVE [SYN], initialize connection FAIL, ack and ignore the packet (2), tcp header ="
+                                        "RECEIVE [SYN], initialize connection FAIL, rst the packet (2), tcp header ="
                                                 + inputTcpHeader + " tcp loop key = " + tcpIoLoopKey);
                                 TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                                        .writeIpPacketToDevice(null, ackPacket, tcpIoLoopKey,
+                                        .writeIpPacketToDevice(null, rstPacket, tcpIoLoopKey,
                                                 this.remoteToDeviceStream);
                                 return;
                             }
