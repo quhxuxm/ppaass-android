@@ -15,7 +15,7 @@ public class ChecksumUtil {
         byteBuffer.order(ByteOrder.BIG_ENDIAN);
         byteBuffer.put(bytesToDoChecksum);
         byteBuffer.flip();
-        while (byteBuffer.remaining() > 1) {
+        while (byteBuffer.remaining()> 1) {
             int currentShort = byteBuffer.getShort() & 0xFFFF;
             sum += currentShort;
             while (sum >> 16 > 0) {
@@ -25,14 +25,15 @@ public class ChecksumUtil {
         }
         if (byteBuffer.remaining() == 1) {
             byte finalByte = byteBuffer.get();
-            int finalShort = finalByte << 8;
+            int finalShort = (finalByte &  0xFF) << 8;
             sum += finalShort;
-            while (sum >> 16 > 0) {
-                int tmp = sum & 0xFFFF;
-                sum = (tmp + (sum >> 16));
-            }
+        }
+        while (sum >> 16 > 0) {
+            int tmp = sum & 0xFFFF;
+            sum = (tmp + (sum >> 16));
         }
         sum = ~sum;
-        return sum & 0xFFFF;
+//        return sum & 0xFFFF;
+        return sum;
     }
 }

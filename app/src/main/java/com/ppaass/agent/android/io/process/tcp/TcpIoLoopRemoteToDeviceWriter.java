@@ -12,11 +12,14 @@ import io.netty.buffer.Unpooled;
 
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class TcpIoLoopRemoteToDeviceWriter {
     public static final TcpIoLoopRemoteToDeviceWriter INSTANCE = new TcpIoLoopRemoteToDeviceWriter();
+    private final AtomicInteger timestamp = new AtomicInteger();
 
     private TcpIoLoopRemoteToDeviceWriter() {
+        timestamp.set(1);
     }
 
     private String buildBasePacketType(TcpHeader tcpHeader) {
@@ -112,7 +115,7 @@ class TcpIoLoopRemoteToDeviceWriter {
                 .destinationPort(destinationPort)
                 .sourcePort(sourcePort).window(65535);
         ByteBuf timeStampByteBuf = Unpooled.buffer();
-        timeStampByteBuf.writeInt(Math.abs((int) System.currentTimeMillis()));
+        timeStampByteBuf.writeInt(timestamp.getAndIncrement());
         tcpPacketBuilder
                 .addOption(new TcpHeaderOption(TcpHeaderOption.Kind.TSPOT, ByteBufUtil.getBytes(timeStampByteBuf)));
         timeStampByteBuf.clear();
