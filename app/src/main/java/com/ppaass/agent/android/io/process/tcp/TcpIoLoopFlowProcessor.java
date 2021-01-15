@@ -159,25 +159,23 @@ public class TcpIoLoopFlowProcessor {
                 this.generateLoopKey(inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort()
                         , inputIpV4Header.getDestinationAddress(), inputTcpHeader.getDestinationPort()
                 );
-        synchronized (this.tcpIoLoops) {
-            TcpIoLoop existingTcpIoLoop = this.tcpIoLoops.get(tcpIoLoopKey);
-            if (existingTcpIoLoop != null) {
-                IpPacket ackPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildAck(
-                        inputIpV4Header.getDestinationAddress(),
-                        existingTcpIoLoop.getDestinationPort(),
-                        inputIpV4Header.getSourceAddress(),
-                        existingTcpIoLoop.getSourcePort(),
-                        inputTcpHeader.getAcknowledgementNumber(),
-                        inputTcpHeader.getSequenceNumber(),
-                        null
-                );
-                TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(null, ackPacket, tcpIoLoopKey,
-                        this.remoteToDeviceStream);
-                Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                        "Duplicate syn request coming, ack and ignore it, ip packet = " +
-                                inputIpPacket + ", tcp loop key = " + tcpIoLoopKey);
-                return;
-            }
+        TcpIoLoop existingTcpIoLoop = this.tcpIoLoops.get(tcpIoLoopKey);
+        if (existingTcpIoLoop != null) {
+            IpPacket ackPacket = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildAck(
+                    inputIpV4Header.getDestinationAddress(),
+                    existingTcpIoLoop.getDestinationPort(),
+                    inputIpV4Header.getSourceAddress(),
+                    existingTcpIoLoop.getSourcePort(),
+                    inputTcpHeader.getAcknowledgementNumber(),
+                    inputTcpHeader.getSequenceNumber(),
+                    null
+            );
+            TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(null, ackPacket, tcpIoLoopKey,
+                    this.remoteToDeviceStream);
+            Log.e(TcpIoLoopFlowProcessor.class.getName(),
+                    "Duplicate syn request coming, ack and ignore it, ip packet = " +
+                            inputIpPacket + ", tcp loop key = " + tcpIoLoopKey);
+            return;
         }
         final InetAddress destinationAddress;
         try {
@@ -408,9 +406,8 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void delayDestroyTcpIoLoop(TcpIoLoop tcpIoLoop) {
-        ScheduledFuture<?> destroyFuture = this.delayCloseTcpIoLoopThreadPool
+        this.delayCloseTcpIoLoopThreadPool
                 .schedule(tcpIoLoop::destroy, DEFAULT_DELAY_CLOSE_TIME, TimeUnit.SECONDS);
-        tcpIoLoop.setDestroyFuture(destroyFuture);
     }
 
     private void doRst(IpPacket inputIpPacket) {
