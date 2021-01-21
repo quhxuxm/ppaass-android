@@ -51,7 +51,7 @@ public class TcpIoLoopFlowProcessor {
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-        remoteBootstrap.option(ChannelOption.AUTO_READ, false);
+        remoteBootstrap.option(ChannelOption.AUTO_READ, true);
         remoteBootstrap.option(ChannelOption.AUTO_CLOSE, false);
         remoteBootstrap.option(ChannelOption.TCP_NODELAY, true);
         remoteBootstrap.option(ChannelOption.SO_REUSEADDR, true);
