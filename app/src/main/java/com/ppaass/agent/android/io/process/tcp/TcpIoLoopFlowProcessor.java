@@ -3,11 +3,11 @@ package com.ppaass.agent.android.io.process.tcp;
 import android.net.VpnService;
 import android.util.Log;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
-import com.ppaass.agent.android.io.protocol.ip.IpPacket;
-import com.ppaass.agent.android.io.protocol.ip.IpV4Header;
-import com.ppaass.agent.android.io.protocol.tcp.TcpHeader;
-import com.ppaass.agent.android.io.protocol.tcp.TcpHeaderOption;
-import com.ppaass.agent.android.io.protocol.tcp.TcpPacket;
+import com.ppaass.protocol.base.ip.IpPacket;
+import com.ppaass.protocol.base.ip.IpV4Header;
+import com.ppaass.protocol.base.tcp.TcpHeader;
+import com.ppaass.protocol.base.tcp.TcpHeaderOption;
+import com.ppaass.protocol.base.tcp.TcpPacket;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
@@ -20,7 +20,8 @@ import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Optional;
-import java.util.concurrent.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_IO_LOOP_KEY_FORMAT;
 import static com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant.TCP_LOOP;
@@ -31,13 +32,11 @@ public class TcpIoLoopFlowProcessor {
     private final Bootstrap remoteBootstrap;
     private final ConcurrentMap<String, TcpIoLoop> tcpIoLoops;
     private final OutputStream remoteToDeviceStream;
-    private final ScheduledExecutorService delayCloseTcpIoLoopThreadPool;
 
     public TcpIoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream) {
         this.remoteBootstrap = this.createRemoteBootstrap(vpnService, remoteToDeviceStream);
         this.tcpIoLoops = new ConcurrentHashMap<>();
         this.remoteToDeviceStream = remoteToDeviceStream;
-        this.delayCloseTcpIoLoopThreadPool = Executors.newScheduledThreadPool(32);
     }
 
     public void shutdown() {
@@ -384,8 +383,7 @@ public class TcpIoLoopFlowProcessor {
     }
 
     private void delayDestroyTcpIoLoop(TcpIoLoop tcpIoLoop) {
-        this.delayCloseTcpIoLoopThreadPool
-                .schedule(tcpIoLoop::destroy, DEFAULT_DELAY_CLOSE_TIME, TimeUnit.SECONDS);
+        tcpIoLoop.destroy();
     }
 
     private void doRst(IpPacket inputIpPacket) {

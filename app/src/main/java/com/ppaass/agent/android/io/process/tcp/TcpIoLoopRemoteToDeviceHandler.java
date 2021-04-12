@@ -1,8 +1,8 @@
 package com.ppaass.agent.android.io.process.tcp;
 
 import android.util.Log;
-import com.ppaass.agent.android.io.protocol.ip.IpPacket;
 import com.ppaass.kt.common.SerializerKt;
+import com.ppaass.protocol.base.ip.IpPacket;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.channel.Channel;

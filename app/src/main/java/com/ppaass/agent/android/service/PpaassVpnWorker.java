@@ -3,7 +3,7 @@ package com.ppaass.agent.android.service;
 import android.net.VpnService;
 import android.util.Log;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoopFlowProcessor;
-import com.ppaass.agent.android.io.protocol.ip.*;
+import com.ppaass.protocol.base.ip.*;
 
 import java.io.IOException;
 import java.io.InputStream;
