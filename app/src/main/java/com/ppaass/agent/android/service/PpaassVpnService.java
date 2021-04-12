@@ -30,9 +30,11 @@ public class PpaassVpnService extends VpnService {
             agentPrivateKeyBytes = new byte[agentPrivateKeyStream.available()];
             int readAgentPrivateKeyBytesResult = agentPrivateKeyStream.read(agentPrivateKeyBytes);
             if (readAgentPrivateKeyBytesResult < 0) {
+                Log.e(PpaassVpnService.class.getName(), "Fail to read agent private key because of read length < 0.");
                 throw new RuntimeException();
             }
         } catch (IOException e) {
+            Log.e(PpaassVpnService.class.getName(), "Fail to read agent private key because of exception.", e);
             throw new RuntimeException(e);
         }
         byte[] proxyPublicKeyBytes;
@@ -42,9 +44,11 @@ public class PpaassVpnService extends VpnService {
             proxyPublicKeyBytes = new byte[proxyPublicKeyStream.available()];
             int readProxyPublicKeyBytesResult = proxyPublicKeyStream.read(proxyPublicKeyBytes);
             if (readProxyPublicKeyBytesResult < 0) {
+                Log.e(PpaassVpnService.class.getName(), "Fail to read proxy public key because of read length < 0.");
                 throw new RuntimeException();
             }
         } catch (IOException e) {
+            Log.e(PpaassVpnService.class.getName(), "Fail to read proxy public key because of exception.", e);
             throw new RuntimeException(e);
         }
         if (this.vpnInterface == null) {

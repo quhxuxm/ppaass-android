@@ -15,19 +15,16 @@ public class PpaassVpnWorker implements Runnable {
     private static final int DEVICE_TO_REMOTE_BUFFER_SIZE = 32768;
     private final ExecutorService executor;
     private final InputStream deviceToRemoteStream;
-    private final byte[] agentPrivateKeyBytes;
-    private final byte[] proxyPublicKeyBytes;
     private final TcpIoLoopFlowProcessor tcpIoLoopFlowProcessor;
     private boolean alive;
 
     public PpaassVpnWorker(InputStream deviceToRemoteStream, OutputStream remoteToDeviceStream,
                            VpnService vpnService, byte[] agentPrivateKeyBytes, byte[] proxyPublicKeyBytes) {
         this.deviceToRemoteStream = deviceToRemoteStream;
-        this.agentPrivateKeyBytes = agentPrivateKeyBytes;
-        this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.alive = false;
         this.executor = Executors.newSingleThreadExecutor();
-        this.tcpIoLoopFlowProcessor = new TcpIoLoopFlowProcessor(vpnService, remoteToDeviceStream);
+        this.tcpIoLoopFlowProcessor = new TcpIoLoopFlowProcessor(vpnService, remoteToDeviceStream, agentPrivateKeyBytes,
+                proxyPublicKeyBytes);
     }
 
     public synchronized void start() {
