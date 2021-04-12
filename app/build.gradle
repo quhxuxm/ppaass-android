@@ -28,11 +28,11 @@ android {
 
 dependencies {
     implementation fileTree(dir: "libs", include: ["*.jar"])
-    implementation "io.netty:netty-all:4.1.53.Final"
+    implementation "io.netty:netty-all:4.1.63.Final"
     implementation "org.slf4j:slf4j-api:1.7.30"
     implementation "org.slf4j:slf4j-android:1.7.30"
-    implementation "net.jpountz.lz4:lz4:1.2.0"
-    implementation "com.ppaass.kt:common:1.0-SNAPSHOT"
+    implementation "org.lz4:lz4-java:1.7.1"
+    implementation "com.ppaass:common:1.0-SNAPSHOT"
     implementation "com.ppaass.protocol:base:1.0-SNAPSHOT"
     implementation 'androidx.appcompat:appcompat:1.1.0'
     implementation 'androidx.constraintlayout:constraintlayout:1.1.3'
