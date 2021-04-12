@@ -3,6 +3,7 @@ package com.ppaass.agent.android.service;
 import android.net.VpnService;
 import android.util.Log;
 import com.ppaass.agent.android.io.process.tcp.TcpIoLoopFlowProcessor;
+import com.ppaass.agent.android.io.process.udp.UdpIoLoopFlowProcessor;
 import com.ppaass.protocol.base.ip.*;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ public class PpaassVpnWorker implements Runnable {
     private final ExecutorService executor;
     private final InputStream deviceToRemoteStream;
     private final TcpIoLoopFlowProcessor tcpIoLoopFlowProcessor;
+    private final UdpIoLoopFlowProcessor udpIoLoopFlowProcessor;
     private boolean alive;
 
     public PpaassVpnWorker(InputStream deviceToRemoteStream, OutputStream remoteToDeviceStream,
@@ -25,6 +27,8 @@ public class PpaassVpnWorker implements Runnable {
         this.executor = Executors.newSingleThreadExecutor();
         this.tcpIoLoopFlowProcessor = new TcpIoLoopFlowProcessor(vpnService, remoteToDeviceStream, agentPrivateKeyBytes,
                 proxyPublicKeyBytes);
+        this.udpIoLoopFlowProcessor =
+                new UdpIoLoopFlowProcessor(vpnService, remoteToDeviceStream, agentPrivateKeyBytes, proxyPublicKeyBytes);
     }
 
     public synchronized void start() {
@@ -59,6 +63,10 @@ public class PpaassVpnWorker implements Runnable {
                 IpDataProtocol protocol = ipV4Header.getProtocol();
                 if (IpDataProtocol.TCP == protocol) {
                     this.tcpIoLoopFlowProcessor.execute(ipPacket);
+                    continue;
+                }
+                if (IpDataProtocol.UDP == protocol) {
+                    this.udpIoLoopFlowProcessor.execute(ipPacket);
                     continue;
                 }
                 Log.e(PpaassVpnService.class.getName(), "Do not support other protocol, protocol = " + protocol);

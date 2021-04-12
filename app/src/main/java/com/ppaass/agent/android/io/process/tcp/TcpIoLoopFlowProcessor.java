@@ -198,26 +198,6 @@ public class TcpIoLoopFlowProcessor {
                             inputIpPacket + ", tcp loop key = " + tcpIoLoopKey);
             return;
         }
-        final InetAddress destinationAddress;
-        try {
-            destinationAddress = InetAddress.getByAddress(inputIpV4Header.getDestinationAddress());
-        } catch (UnknownHostException e) {
-            Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                    "Fail to parse destination address, ip packet = " +
-                            inputIpPacket + ", tcp loop key = " + tcpIoLoopKey);
-            IpPacket ipPacketWroteToDevice =
-                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFinAck(
-                            inputIpV4Header.getDestinationAddress(),
-                            inputTcpHeader.getDestinationPort(),
-                            inputIpV4Header.getSourceAddress(),
-                            inputTcpHeader.getSourcePort(),
-                            inputTcpHeader.getAcknowledgementNumber(),
-                            inputTcpHeader.getSequenceNumber());
-            TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(null, ipPacketWroteToDevice, null,
-                            remoteToDeviceStream);
-            return;
-        }
         this.remoteBootstrap
                 .connect("45.63.92.64", 80)
                 .addListener(
