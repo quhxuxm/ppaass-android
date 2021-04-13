@@ -40,8 +40,8 @@ public class UdpIoLoopFlowProcessor {
     private final Bootstrap remoteBootstrap;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
-    private List<Channel> udpChannelsPool;
-    private Random random;
+    private final List<Channel> udpChannelsPool;
+    private final Random random;
 
     public UdpIoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream, byte[] agentPrivateKeyBytes,
                                   byte[] proxyPublicKeyBytes) {
@@ -49,6 +49,7 @@ public class UdpIoLoopFlowProcessor {
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteBootstrap = this.createRemoteUdpChannel(vpnService, remoteToDeviceStream);
         this.udpChannelsPool = new ArrayList<>();
+        this.random = new Random();
         for (int i = 0; i < POOL_SIZE; i++) {
             try {
                 this.udpChannelsPool.add(this.remoteBootstrap.connect("45.63.92.64", 80).sync().channel());
@@ -56,7 +57,6 @@ public class UdpIoLoopFlowProcessor {
                 throw new RuntimeException(e);
             }
         }
-        this.random = new Random();
     }
 
     public void shutdown() {
