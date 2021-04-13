@@ -36,7 +36,7 @@ public class UdpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<
             byte[] originalSourceAddressBytes =
                     InetAddress.getByName(udpTransferMessageContent.getOriginalSourceAddress()).getAddress();
             IpPacket udpPacketWriteToDevice = UdpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .buildUdpPacket(originalDestinationAddressBytes, udpTransferMessageContent.getOriginalSourcePort(),
+                    .buildUdpPacket(originalDestinationAddressBytes, udpTransferMessageContent.getOriginalDestinationPort(),
                             originalSourceAddressBytes, udpTransferMessageContent.getOriginalSourcePort(),
                             udpTransferMessageContent.getData());
             UdpIoLoopRemoteToDeviceWriter.INSTANCE

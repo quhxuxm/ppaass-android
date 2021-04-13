@@ -148,6 +148,6 @@ public class UdpIoLoopFlowProcessor {
                         agentMessageBody);
         Channel remoteUdpChannel =
                 this.udpChannelsPool.get(Math.abs(this.random.nextInt()) % this.udpChannelsPool.size());
-        remoteUdpChannel.writeAndFlush(agentMessage).syncUninterruptibly();
+        remoteUdpChannel.writeAndFlush(agentMessage);
     }
 }
