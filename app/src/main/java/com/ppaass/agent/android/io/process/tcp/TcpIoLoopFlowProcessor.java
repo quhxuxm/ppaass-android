@@ -193,7 +193,7 @@ public class TcpIoLoopFlowProcessor {
             );
             TcpIoLoopRemoteToDeviceWriter.INSTANCE.writeIpPacketToDevice(null, ackPacket, tcpIoLoopKey,
                     this.remoteToDeviceStream);
-            Log.e(TcpIoLoopFlowProcessor.class.getName(),
+            Log.d(TcpIoLoopFlowProcessor.class.getName(),
                     "Duplicate syn request coming, ack and ignore it, ip packet = " +
                             inputIpPacket + ", tcp loop key = " + tcpIoLoopKey);
             return;
