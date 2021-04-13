@@ -66,7 +66,7 @@ public class UdpIoLoopFlowProcessor {
     private Bootstrap createRemoteUdpChannel(VpnService vpnService, OutputStream remoteToDeviceStream) {
 //        System.setProperty("io.netty.selectorAutoRebuildThreshold", Integer.toString(Integer.MAX_VALUE));
         Bootstrap remoteBootstrap = new Bootstrap();
-        remoteBootstrap.group(new NioEventLoopGroup(16));
+        remoteBootstrap.group(new NioEventLoopGroup(POOL_SIZE));
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
