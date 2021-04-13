@@ -7,6 +7,8 @@ import android.util.Log;
 import com.ppaass.agent.android.R;
 
 import java.io.*;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 
 import static com.ppaass.agent.android.IPpaassConstant.VPN_ADDRESS;
 import static com.ppaass.agent.android.IPpaassConstant.VPN_ROUTE;
@@ -55,6 +57,11 @@ public class PpaassVpnService extends VpnService {
             Builder vpnBuilder = new Builder();
             vpnBuilder.addAddress(VPN_ADDRESS, 32);
             vpnBuilder.addRoute(VPN_ROUTE, 0);
+            try {
+                vpnBuilder.addDnsServer(InetAddress.getByName("8.8.8.8"));
+            } catch (UnknownHostException e) {
+                throw new RuntimeException(e);
+            }
             vpnBuilder.setMtu(1500);
             vpnBuilder.setBlocking(true);
             vpnBuilder.setSession(getString(R.string.app_name));
