@@ -52,11 +52,16 @@ public class PpaassVpnWorker implements Runnable {
             try {
                 int readResult = this.deviceToRemoteStream.read(buffer);
                 if (readResult < 0) {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     continue;
                 }
                 IpPacket ipPacket = IpPacketReader.INSTANCE.parse(buffer);
                 if (IpHeaderVersion.V4 != ipPacket.getHeader().getVersion()) {
-                    Log.e(PpaassVpnService.class.getName(), "Ignore non-ipv4 packet, packet:\n" + ipPacket);
+                    Log.d(PpaassVpnService.class.getName(), "Ignore non-ipv4 packet, packet:\n" + ipPacket);
                     continue;
                 }
                 IpV4Header ipV4Header = (IpV4Header) ipPacket.getHeader();

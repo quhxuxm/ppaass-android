@@ -57,11 +57,7 @@ public class PpaassVpnService extends VpnService {
             Builder vpnBuilder = new Builder();
             vpnBuilder.addAddress(VPN_ADDRESS, 32);
             vpnBuilder.addRoute(VPN_ROUTE, 0);
-            try {
-                vpnBuilder.addDnsServer(InetAddress.getByName("8.8.8.8"));
-            } catch (UnknownHostException e) {
-                throw new RuntimeException(e);
-            }
+            vpnBuilder.addDnsServer("8.8.8.8");
             vpnBuilder.setMtu(1500);
             vpnBuilder.setBlocking(true);
             vpnBuilder.setSession(getString(R.string.app_name));

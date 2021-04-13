@@ -31,23 +31,32 @@ import io.netty.handler.codec.compression.Lz4FrameEncoder;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 public class UdpIoLoopFlowProcessor {
+    private static final int POOL_SIZE = 32;
     private final Bootstrap remoteBootstrap;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
-    private final Channel remoteUdpChannel;
+    private List<Channel> udpChannelsPool;
+    private Random random;
 
     public UdpIoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream, byte[] agentPrivateKeyBytes,
                                   byte[] proxyPublicKeyBytes) {
         this.agentPrivateKeyBytes = agentPrivateKeyBytes;
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteBootstrap = this.createRemoteUdpChannel(vpnService, remoteToDeviceStream);
-        try {
-            this.remoteUdpChannel = this.remoteBootstrap.connect("45.63.92.64", 80).sync().channel();
-        } catch (InterruptedException e) {
-            throw new RuntimeException();
+        this.udpChannelsPool = new ArrayList<>();
+        for (int i = 0; i < POOL_SIZE; i++) {
+            try {
+                this.udpChannelsPool.add(this.remoteBootstrap.connect("45.63.92.64", 80).sync().channel());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
         }
+        this.random = new Random();
     }
 
     public void shutdown() {
@@ -55,9 +64,9 @@ public class UdpIoLoopFlowProcessor {
     }
 
     private Bootstrap createRemoteUdpChannel(VpnService vpnService, OutputStream remoteToDeviceStream) {
-        System.setProperty("io.netty.selectorAutoRebuildThreshold", Integer.toString(Integer.MAX_VALUE));
+//        System.setProperty("io.netty.selectorAutoRebuildThreshold", Integer.toString(Integer.MAX_VALUE));
         Bootstrap remoteBootstrap = new Bootstrap();
-        remoteBootstrap.group(new NioEventLoopGroup(4));
+        remoteBootstrap.group(new NioEventLoopGroup(16));
         remoteBootstrap.channelFactory(() -> new VpnNioSocketChannel(vpnService));
         remoteBootstrap.option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 10000);
         remoteBootstrap.option(ChannelOption.SO_KEEPALIVE, true);
@@ -137,12 +146,8 @@ public class UdpIoLoopFlowProcessor {
                         MessageSerializer.INSTANCE.generateUuidInBytes(),
                         EncryptionType.choose(),
                         agentMessageBody);
-        try {
-            this.remoteUdpChannel.writeAndFlush(agentMessage);
-        } catch (Exception e) {
-            Log.e(UdpIoLoopFlowProcessor.class.getName(),
-                    "Exception happen when execute ip packet, ip packet = " + inputIpPacket, e);
-            throw new RuntimeException(e);
-        }
+        Channel remoteUdpChannel =
+                this.udpChannelsPool.get(Math.abs(this.random.nextInt()) % this.udpChannelsPool.size());
+        remoteUdpChannel.writeAndFlush(agentMessage).syncUninterruptibly();
     }
 }
