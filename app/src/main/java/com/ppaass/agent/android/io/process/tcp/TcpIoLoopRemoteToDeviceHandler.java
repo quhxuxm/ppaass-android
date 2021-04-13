@@ -26,7 +26,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<
         final TcpIoLoop tcpIoLoop = remoteChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         final OutputStream remoteToDeviceStream = remoteChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
         IpPacket ipPacketWroteToDevice =
-                TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFinAck(
+                TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
                         tcpIoLoop.getDestinationAddress().getAddress(),
                         tcpIoLoop.getDestinationPort(),
                         tcpIoLoop.getSourceAddress().getAddress(),
@@ -37,7 +37,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<
                 .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                         remoteToDeviceStream);
         Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
-                "Remote connection closed, close device connection, tcp loop=" +
+                "Remote connection closed, reset device connection, tcp loop=" +
                         tcpIoLoop);
     }
 
@@ -47,6 +47,10 @@ public class TcpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<
         Channel proxyChannel = proxyChannelContext.channel();
         final TcpIoLoop tcpIoLoop = proxyChannel.attr(ITcpIoLoopConstant.TCP_LOOP).get();
         final OutputStream remoteToDeviceStream = proxyChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
+        if (tcpIoLoop == null || remoteToDeviceStream == null) {
+            proxyChannel.close();
+            return;
+        }
         ProxyMessageBodyType proxyMessageBodyType = proxyMessage.getBody().getBodyType();
         if (ProxyMessageBodyType.CONNECT_SUCCESS == proxyMessageBodyType) {
             Log.d(TcpIoLoopRemoteToDeviceHandler.class.getName(),
@@ -86,7 +90,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<
         }
         if (ProxyMessageBodyType.FAIL_TCP == proxyMessageBodyType) {
             IpPacket ipPacketWroteToDevice =
-                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFinAck(
+                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
                             tcpIoLoop.getDestinationAddress().getAddress(),
                             tcpIoLoop.getDestinationPort(),
                             tcpIoLoop.getSourceAddress().getAddress(),
@@ -97,7 +101,7 @@ public class TcpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
             Log.e(TcpIoLoopFlowProcessor.class.getName(),
-                    "Fail to receive TCP data (FAIL_TCP) on tcp loop = " + tcpIoLoop);
+                    "Fail to receive TCP data (FAIL_TCP) on tcp loop, reset connection, tcp loop = " + tcpIoLoop);
             return;
         }
         if (ProxyMessageBodyType.FAIL_UDP == proxyMessageBodyType) {

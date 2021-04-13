@@ -207,7 +207,7 @@ public class TcpIoLoopFlowProcessor {
                                         "RECEIVE [SYN], initialize connection FAIL (1), tcp header ="
                                                 + inputTcpHeader + " tcp loop key = " + tcpIoLoopKey);
                                 IpPacket ipPacketWroteToDevice =
-                                        TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFinAck(
+                                        TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildRst(
                                                 inputIpV4Header.getDestinationAddress(),
                                                 inputTcpHeader.getDestinationPort(),
                                                 inputIpV4Header.getSourceAddress(),

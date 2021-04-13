@@ -28,30 +28,32 @@ public class UdpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<
         Channel proxyChannel = proxyChannelContext.channel();
         final OutputStream remoteToDeviceStream = proxyChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
         ProxyMessageBodyType proxyMessageBodyType = proxyMessage.getBody().getBodyType();
-        if (ProxyMessageBodyType.OK_UDP == proxyMessageBodyType) {
-            UdpTransferMessageContent udpTransferMessageContent = MessageSerializer.JSON_OBJECT_MAPPER
-                    .readValue(proxyMessage.getBody().getData(), UdpTransferMessageContent.class);
-            byte[] originalDestinationAddressBytes =
-                    InetAddress.getByName(udpTransferMessageContent.getOriginalDestinationAddress()).getAddress();
-            byte[] originalSourceAddressBytes =
-                    InetAddress.getByName(udpTransferMessageContent.getOriginalSourceAddress()).getAddress();
-            IpPacket udpPacketWriteToDevice = UdpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .buildUdpPacket(originalDestinationAddressBytes, udpTransferMessageContent.getOriginalDestinationPort(),
-                            originalSourceAddressBytes, udpTransferMessageContent.getOriginalSourcePort(),
-                            udpTransferMessageContent.getData());
-            UdpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(udpPacketWriteToDevice,
-                            remoteToDeviceStream);
+        if (ProxyMessageBodyType.OK_UDP != proxyMessageBodyType) {
             Log.i(UdpIoLoopRemoteToDeviceHandler.class.getName(),
-                    "Success receive udp message, source address = " + udpTransferMessageContent.getOriginalSourceAddress() +
-                            ", source port =" + udpTransferMessageContent.getOriginalSourcePort() +
-                            ", destination address =" + udpTransferMessageContent.getOriginalDestinationAddress() +
-                            ", destination port = " + udpTransferMessageContent.getOriginalDestinationPort() +
-                            ", content:\n" +
-                            ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(udpTransferMessageContent.getData())) +
-                            "\n");
+                    "Fail to receive udp message.");
             return;
         }
-        throw new RuntimeException("Can not handle proxy message body type: " + proxyMessageBodyType);
+        UdpTransferMessageContent udpTransferMessageContent = MessageSerializer.JSON_OBJECT_MAPPER
+                .readValue(proxyMessage.getBody().getData(), UdpTransferMessageContent.class);
+        byte[] originalDestinationAddressBytes =
+                InetAddress.getByName(udpTransferMessageContent.getOriginalDestinationAddress()).getAddress();
+        byte[] originalSourceAddressBytes =
+                InetAddress.getByName(udpTransferMessageContent.getOriginalSourceAddress()).getAddress();
+        IpPacket udpPacketWriteToDevice = UdpIoLoopRemoteToDeviceWriter.INSTANCE
+                .buildUdpPacket(originalDestinationAddressBytes, udpTransferMessageContent.getOriginalDestinationPort(),
+                        originalSourceAddressBytes, udpTransferMessageContent.getOriginalSourcePort(),
+                        udpTransferMessageContent.getData());
+        UdpIoLoopRemoteToDeviceWriter.INSTANCE
+                .writeIpPacketToDevice(udpPacketWriteToDevice,
+                        remoteToDeviceStream);
+        Log.i(UdpIoLoopRemoteToDeviceHandler.class.getName(),
+                "Success receive udp message, source address = " +
+                        udpTransferMessageContent.getOriginalSourceAddress() +
+                        ", source port =" + udpTransferMessageContent.getOriginalSourcePort() +
+                        ", destination address =" + udpTransferMessageContent.getOriginalDestinationAddress() +
+                        ", destination port = " + udpTransferMessageContent.getOriginalDestinationPort() +
+                        ", content:\n" +
+                        ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(udpTransferMessageContent.getData())) +
+                        "\n");
     }
 }

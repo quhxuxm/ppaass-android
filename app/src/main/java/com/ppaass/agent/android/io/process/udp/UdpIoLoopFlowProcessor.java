@@ -54,7 +54,8 @@ public class UdpIoLoopFlowProcessor {
             try {
                 this.udpChannelsPool.add(this.remoteBootstrap.connect("45.63.92.64", 80).sync().channel());
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                Log.e(UdpIoLoopFlowProcessor.class.getName(),
+                        "Fail to create UDP connection to pool because of exception.", e);
             }
         }
     }
@@ -103,13 +104,13 @@ public class UdpIoLoopFlowProcessor {
         try {
             destinationAddress = InetAddress.getByAddress(inputIpV4Header.getDestinationAddress());
         } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
+            return;
         }
         final InetAddress sourceAddress;
         try {
             sourceAddress = InetAddress.getByAddress(inputIpV4Header.getSourceAddress());
         } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
+            return;
         }
         UdpTransferMessageContent udpTransferMessageContent = new UdpTransferMessageContent();
         udpTransferMessageContent.setData(inputUdpPacket.getData());
@@ -131,7 +132,7 @@ public class UdpIoLoopFlowProcessor {
             udpTransferMessageContentBytes =
                     MessageSerializer.JSON_OBJECT_MAPPER.writeValueAsBytes(udpTransferMessageContent);
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            return;
         }
         AgentMessageBody agentMessageBody =
                 new AgentMessageBody(
