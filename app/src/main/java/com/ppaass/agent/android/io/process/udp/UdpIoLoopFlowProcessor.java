@@ -2,6 +2,7 @@ package com.ppaass.agent.android.io.process.udp;
 
 import android.net.VpnService;
 import android.util.Log;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
 import com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant;
 import com.ppaass.common.cryptography.EncryptionType;
@@ -14,6 +15,8 @@ import com.ppaass.protocol.base.ip.IpV4Header;
 import com.ppaass.protocol.base.udp.UdpHeader;
 import com.ppaass.protocol.base.udp.UdpPacket;
 import io.netty.bootstrap.Bootstrap;
+import io.netty.buffer.ByteBufUtil;
+import io.netty.buffer.Unpooled;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
@@ -31,7 +34,6 @@ import java.net.UnknownHostException;
 
 public class UdpIoLoopFlowProcessor {
     private final Bootstrap remoteBootstrap;
-    private final OutputStream remoteToDeviceStream;
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
     private final Channel remoteUdpChannel;
@@ -41,7 +43,6 @@ public class UdpIoLoopFlowProcessor {
         this.agentPrivateKeyBytes = agentPrivateKeyBytes;
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
         this.remoteBootstrap = this.createRemoteUdpChannel(vpnService, remoteToDeviceStream);
-        this.remoteToDeviceStream = remoteToDeviceStream;
         try {
             this.remoteUdpChannel = this.remoteBootstrap.connect("45.63.92.64", 80).sync().channel();
         } catch (InterruptedException e) {
@@ -95,9 +96,34 @@ public class UdpIoLoopFlowProcessor {
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
-        UdpMessageContent udpMessageContent=new UdpMessageContent();
-        udpMessageContent.setData(inputUdpPacket.getData());
-
+        final InetAddress sourceAddress;
+        try {
+            sourceAddress = InetAddress.getByAddress(inputIpV4Header.getSourceAddress());
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
+        UdpTransferMessageContent udpTransferMessageContent = new UdpTransferMessageContent();
+        udpTransferMessageContent.setData(inputUdpPacket.getData());
+        udpTransferMessageContent.setOriginalDestinationAddress(destinationAddress.getHostAddress());
+        udpTransferMessageContent.setOriginalDestinationPort(inputUdpHeader.getDestinationPort());
+        udpTransferMessageContent.setOriginalSourceAddress(sourceAddress.getHostAddress());
+        udpTransferMessageContent.setOriginalSourcePort(inputUdpHeader.getSourcePort());
+        udpTransferMessageContent.setOriginalAddrType(UdpTransferMessageContent.AddrType.IPV4);
+        Log.i(UdpIoLoopFlowProcessor.class.getName(),
+                "Send udp request, source address = " + udpTransferMessageContent.getOriginalSourceAddress() +
+                        ", source port =" + udpTransferMessageContent.getOriginalSourcePort() +
+                        ", destination address =" + udpTransferMessageContent.getOriginalDestinationAddress() +
+                        ", destination port = " + udpTransferMessageContent.getOriginalDestinationPort() +
+                        ", content:\n" +
+                        ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(udpTransferMessageContent.getData())) +
+                        "\n");
+        byte[] udpTransferMessageContentBytes;
+        try {
+            udpTransferMessageContentBytes =
+                    MessageSerializer.JSON_OBJECT_MAPPER.writeValueAsBytes(udpTransferMessageContent);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
         AgentMessageBody agentMessageBody =
                 new AgentMessageBody(
                         MessageSerializer.INSTANCE.generateUuid(),
@@ -105,7 +131,7 @@ public class UdpIoLoopFlowProcessor {
                         destinationAddress.getHostAddress(),
                         inputUdpHeader.getDestinationPort(),
                         AgentMessageBodyType.UDP_DATA,
-                       MessageSerializer.JSON_OBJECT_MAPPER.writeValueAsBytes(udpMessageContent));
+                        udpTransferMessageContentBytes);
         AgentMessage agentMessage =
                 new AgentMessage(
                         MessageSerializer.INSTANCE.generateUuidInBytes(),
