@@ -18,7 +18,7 @@ public class TcpIoLoop {
     private final String key;
     private final AtomicReference<TcpIoLoopStatus> status;
     private int mss;
-    private int concreteWindowSizeInByte;
+//    private int concreteWindowSizeInByte;
     private final AtomicReference<Channel> remoteChannel;
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
@@ -48,7 +48,7 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceSequenceNumber = new AtomicLong(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
         this.remoteChannel = new AtomicReference<>(null);
-        this.concreteWindowSizeInByte = 0;
+//        this.concreteWindowSizeInByte = 0;
     }
 
     public long getUpdateTime() {
@@ -135,28 +135,28 @@ public class TcpIoLoop {
         this.accumulateRemoteToDeviceSequenceNumber.set(accumulateRemoteToDeviceSequenceNumber);
     }
 
-    public void setConcreteWindowSizeInByte(int concreteWindowSizeInByte) {
-        this.concreteWindowSizeInByte = concreteWindowSizeInByte;
-    }
-
-    public int getConcreteWindowSizeInByte() {
-        return concreteWindowSizeInByte;
-    }
+//    public void setConcreteWindowSizeInByte(int concreteWindowSizeInByte) {
+//        this.concreteWindowSizeInByte = concreteWindowSizeInByte;
+//    }
+//
+//    public int getConcreteWindowSizeInByte() {
+//        return concreteWindowSizeInByte;
+//    }
 
     public void destroy() {
         synchronized (this.container) {
             this.container.remove(this.getKey());
         }
-        this.concreteWindowSizeInByte = 0;
+//        this.concreteWindowSizeInByte = 0;
         this.status.set(TcpIoLoopStatus.CLOSED);
         this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
-        if (this.remoteChannel.get() != null) {
-            if (this.remoteChannel.get().isOpen()) {
-                this.remoteChannel.get().close();
-            }
-        }
-        Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
+//        if (this.remoteChannel.get() != null) {
+//            if (this.remoteChannel.get().isOpen()) {
+//                this.remoteChannel.get().close();
+//            }
+//        }
+//        Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
     }
 
     @Override
@@ -168,8 +168,8 @@ public class TcpIoLoop {
                 ", sourcePort=" + sourcePort +
                 ", destinationPort=" + destinationPort +
                 ", status=" + status +
-                ", mss=" + mss +
-                ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
+//                ", mss=" + mss +
+//                ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
                 ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
                 ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
