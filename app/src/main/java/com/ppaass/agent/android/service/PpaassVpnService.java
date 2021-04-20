@@ -58,8 +58,8 @@ public class PpaassVpnService extends VpnService {
             vpnBuilder.addAddress(VPN_ADDRESS, 32);
             vpnBuilder.addRoute(VPN_ROUTE, 0);
             vpnBuilder.addDnsServer("8.8.8.8");
-            vpnBuilder.setMtu(1500);
-            vpnBuilder.setBlocking(true);
+//            vpnBuilder.setMtu(1500);
+            vpnBuilder.setBlocking(false);
             vpnBuilder.setSession(getString(R.string.app_name));
             this.vpnInterface =
                     vpnBuilder.establish();

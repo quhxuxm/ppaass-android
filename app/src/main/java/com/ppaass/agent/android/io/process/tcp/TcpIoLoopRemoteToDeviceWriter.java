@@ -139,22 +139,22 @@ class TcpIoLoopRemoteToDeviceWriter {
                     packetType = "ACK";
                 }
             }
-            byte[] tcpData = tcpPacket.getData();
-            if (tcpData.length == 0) {
-                Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
-                        "WRITE TO DEVICE [" + actionId + "] [" + packetType + ", NO DATA, size=" + tcpData.length +
-                                "], ip packet = " +
-                                ipPacket +
-                                ", tcp loop key= '" + loopKey + "'");
-            } else {
-                Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
-                        "WRITE TO DEVICE [" + actionId + "] [" + packetType + ", size=" + tcpData.length +
-                                "], ip packet = " + ipPacket +
-                                ", tcp loop key= '" + loopKey +
-                                "', DATA:\n" +
-                                ByteBufUtil.prettyHexDump(
-                                        Unpooled.wrappedBuffer(tcpData)));
-            }
+//            byte[] tcpData = tcpPacket.getData();
+//            if (tcpData.length == 0) {
+//                Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
+//                        "WRITE TO DEVICE [" + actionId + "] [" + packetType + ", NO DATA, size=" + tcpData.length +
+//                                "], ip packet = " +
+//                                ipPacket +
+//                                ", tcp loop key= '" + loopKey + "'");
+//            } else {
+//                Log.d(TcpIoLoopRemoteToDeviceWriter.class.getName(),
+//                        "WRITE TO DEVICE [" + actionId + "] [" + packetType + ", size=" + tcpData.length +
+//                                "], ip packet = " + ipPacket +
+//                                ", tcp loop key= '" + loopKey +
+//                                "', DATA:\n" +
+//                                ByteBufUtil.prettyHexDump(
+//                                        Unpooled.wrappedBuffer(tcpData)));
+//            }
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
             remoteToDeviceStream.flush();
         } catch (IOException e) {

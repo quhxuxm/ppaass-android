@@ -4,7 +4,6 @@ import android.net.VpnService;
 import android.util.Log;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
-import com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant;
 import com.ppaass.common.cryptography.EncryptionType;
 import com.ppaass.common.handler.AgentMessageEncoder;
 import com.ppaass.common.handler.PrintExceptionHandler;
@@ -60,6 +59,17 @@ public class UdpIoLoopFlowProcessor {
         }
     }
 
+    private Channel pickOneRemoteChannel() {
+        Channel channel = this.udpChannelsPool.get(Math.abs(this.random.nextInt()) % this.udpChannelsPool.size());
+        if (channel.isActive()) {
+            return channel;
+        }
+        this.udpChannelsPool.remove(channel);
+        channel = this.remoteBootstrap.connect("45.63.92.64", 80).syncUninterruptibly().channel();
+        this.udpChannelsPool.add(channel);
+        return channel;
+    }
+
     public void shutdown() {
         this.remoteBootstrap.config().group().shutdownGracefully();
     }
@@ -85,14 +95,13 @@ public class UdpIoLoopFlowProcessor {
                 proxyChannelPipeline.addLast(new Lz4FrameDecoder());
                 proxyChannelPipeline.addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 4));
                 proxyChannelPipeline.addLast(new ProxyMessageDecoder(UdpIoLoopFlowProcessor.this.agentPrivateKeyBytes));
-                proxyChannelPipeline.addLast(new UdpIoLoopRemoteToDeviceHandler());
+                proxyChannelPipeline.addLast(new UdpIoLoopRemoteToDeviceHandler(remoteToDeviceStream));
                 proxyChannelPipeline.addLast(new Lz4FrameEncoder());
                 proxyChannelPipeline.addLast(new LengthFieldPrepender(4));
                 proxyChannelPipeline.addLast(new AgentMessageEncoder(UdpIoLoopFlowProcessor.this.proxyPublicKeyBytes));
                 proxyChannelPipeline.addLast(new PrintExceptionHandler());
             }
         });
-        remoteBootstrap.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM, remoteToDeviceStream);
         return remoteBootstrap;
     }
 
@@ -147,8 +156,7 @@ public class UdpIoLoopFlowProcessor {
                         MessageSerializer.INSTANCE.generateUuidInBytes(),
                         EncryptionType.choose(),
                         agentMessageBody);
-        Channel remoteUdpChannel =
-                this.udpChannelsPool.get(Math.abs(this.random.nextInt()) % this.udpChannelsPool.size());
+        Channel remoteUdpChannel =this.pickOneRemoteChannel();
         remoteUdpChannel.writeAndFlush(agentMessage);
     }
 }

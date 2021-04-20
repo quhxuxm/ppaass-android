@@ -1,7 +1,6 @@
 package com.ppaass.agent.android.io.process.udp;
 
 import android.util.Log;
-import com.ppaass.agent.android.io.process.tcp.ITcpIoLoopConstant;
 import com.ppaass.common.message.MessageSerializer;
 import com.ppaass.common.message.ProxyMessage;
 import com.ppaass.common.message.ProxyMessageBodyType;
@@ -19,14 +18,16 @@ import java.net.InetAddress;
 
 @ChannelHandler.Sharable
 public class UdpIoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<ProxyMessage> {
-    public UdpIoLoopRemoteToDeviceHandler() {
+    private final OutputStream remoteToDeviceStream;
+
+    public UdpIoLoopRemoteToDeviceHandler(OutputStream remoteToDeviceStream) {
+        this.remoteToDeviceStream = remoteToDeviceStream;
     }
 
     @Override
     public void channelRead0(ChannelHandlerContext proxyChannelContext, ProxyMessage proxyMessage)
             throws Exception {
         Channel proxyChannel = proxyChannelContext.channel();
-        final OutputStream remoteToDeviceStream = proxyChannel.attr(ITcpIoLoopConstant.REMOTE_TO_DEVICE_STREAM).get();
         ProxyMessageBodyType proxyMessageBodyType = proxyMessage.getBody().getBodyType();
         if (ProxyMessageBodyType.OK_UDP != proxyMessageBodyType) {
             Log.i(UdpIoLoopRemoteToDeviceHandler.class.getName(),

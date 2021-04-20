@@ -42,6 +42,7 @@ public class PpaassVpnWorker implements Runnable {
     public synchronized void stop() {
         this.alive = false;
         this.tcpIoLoopFlowProcessor.shutdown();
+        this.udpIoLoopFlowProcessor.shutdown();
         this.executor.shutdown();
     }
 
@@ -61,7 +62,7 @@ public class PpaassVpnWorker implements Runnable {
                 }
                 IpPacket ipPacket = IpPacketReader.INSTANCE.parse(buffer);
                 if (IpHeaderVersion.V4 != ipPacket.getHeader().getVersion()) {
-                    Log.d(PpaassVpnService.class.getName(), "Ignore non-ipv4 packet, packet:\n" + ipPacket);
+                    Log.v(PpaassVpnService.class.getName(), "Ignore non-ipv4 packet, packet:\n" + ipPacket);
                     continue;
                 }
                 IpV4Header ipV4Header = (IpV4Header) ipPacket.getHeader();
