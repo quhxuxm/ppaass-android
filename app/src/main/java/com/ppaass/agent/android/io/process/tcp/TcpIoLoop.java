@@ -19,7 +19,7 @@ public class TcpIoLoop {
     private final AtomicReference<TcpIoLoopStatus> status;
     private int mss;
     private int concreteWindowSizeInByte;
-    private final AtomicReference<Channel> remoteChannel;
+    private final AtomicReference<Channel> proxyTcpChannel;
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
@@ -47,7 +47,7 @@ public class TcpIoLoop {
         this.mss = -1;
         this.accumulateRemoteToDeviceSequenceNumber = new AtomicLong(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber = new AtomicLong(0);
-        this.remoteChannel = new AtomicReference<>(null);
+        this.proxyTcpChannel = new AtomicReference<>(null);
         this.concreteWindowSizeInByte = 0;
     }
 
@@ -91,12 +91,12 @@ public class TcpIoLoop {
         return destinationPort;
     }
 
-    public void setRemoteChannel(Channel remoteChannel) {
-        this.remoteChannel.set(remoteChannel);
+    public void setProxyTcpChannel(Channel proxyTcpChannel) {
+        this.proxyTcpChannel.set(proxyTcpChannel);
     }
 
-    public Channel getRemoteChannel() {
-        return remoteChannel.get();
+    public Channel getProxyTcpChannel() {
+        return proxyTcpChannel.get();
     }
 
     public void setStatus(TcpIoLoopStatus status) {
@@ -151,9 +151,9 @@ public class TcpIoLoop {
         this.status.set(TcpIoLoopStatus.CLOSED);
         this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
-        if (this.remoteChannel.get() != null) {
-            if (this.remoteChannel.get().isOpen()) {
-                this.remoteChannel.get().close();
+        if (this.proxyTcpChannel.get() != null) {
+            if (this.proxyTcpChannel.get().isOpen()) {
+                this.proxyTcpChannel.get().close();
             }
         }
         Log.d(TcpIoLoop.class.getName(), "Tcp io loop DESTROYED, tcp loop = " + this);
@@ -170,7 +170,7 @@ public class TcpIoLoop {
                 ", status=" + status +
                 ", mss=" + mss +
                 ", concreteWindowSizeInByte=" + concreteWindowSizeInByte +
-                ", remoteChannel =" + (remoteChannel.get() == null ? "" : remoteChannel.get().id().asShortText()) +
+                ", remoteChannel =" + (proxyTcpChannel.get() == null ? "" : proxyTcpChannel.get().id().asShortText()) +
                 ", container = (size:" + container.size() + ")" +
                 ", accumulateRemoteToDeviceSequenceNumber = " + this.accumulateRemoteToDeviceSequenceNumber +
                 ", accumulateRemoteToDeviceAcknowledgementNumber = " +
