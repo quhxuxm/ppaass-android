@@ -13,6 +13,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 
 import java.io.OutputStream;
+import java.net.InetAddress;
 import java.util.concurrent.ConcurrentMap;
 
 @ChannelHandler.Sharable
@@ -162,16 +163,16 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             return;
         }
         if (ProxyMessageBodyType.UDP_DATA_SUCCESS == proxyMessageBodyType) {
-            IpPacket ipPacketWroteToDevice =
-                    TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFinAck(
-                            tcpIoLoop.getDestinationAddress().getAddress(),
-                            tcpIoLoop.getDestinationPort(),
-                            tcpIoLoop.getSourceAddress().getAddress(),
-                            tcpIoLoop.getSourcePort(),
-                            tcpIoLoop.getAccumulateRemoteToDeviceSequenceNumber(),
-                            tcpIoLoop.getAccumulateRemoteToDeviceAcknowledgementNumber());
-            TcpIoLoopRemoteToDeviceWriter.INSTANCE
-                    .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
+            byte[] originalDestinationAddressBytes =
+                    InetAddress.getByName(proxyMessage.getBody().getTargetHost()).getAddress();
+            byte[] originalSourceAddressBytes =
+                    InetAddress.getByName(proxyMessage.getBody().getSourceHost()).getAddress();
+            IpPacket udpPacketWriteToDevice = UdpIoLoopRemoteToDeviceWriter.INSTANCE
+                    .buildUdpPacket(originalDestinationAddressBytes, proxyMessage.getBody().getTargetPort(),
+                            originalSourceAddressBytes, proxyMessage.getBody().getSourcePort(),
+                            proxyMessage.getBody().getData());
+            UdpIoLoopRemoteToDeviceWriter.INSTANCE
+                    .writeIpPacketToDevice(udpPacketWriteToDevice,
                             remoteToDeviceStream);
             Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
                     "Should not receive UDP data on tcp loop = " + tcpIoLoop);
