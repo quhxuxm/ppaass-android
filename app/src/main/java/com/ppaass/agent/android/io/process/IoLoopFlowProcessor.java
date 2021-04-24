@@ -231,6 +231,7 @@ public class IoLoopFlowProcessor {
                     return tcpIoLoop;
                 });
     }
+
     public void executeUdp(IpPacket inputIpPacket) {
         IpV4Header inputIpV4Header = (IpV4Header) inputIpPacket.getHeader();
         UdpPacket inputUdpPacket = (UdpPacket) inputIpPacket.getData();
@@ -257,7 +258,8 @@ public class IoLoopFlowProcessor {
                         destinationAddress.getHostAddress(),
                         inputUdpHeader.getDestinationPort(),
                         AgentMessageBodyType.UDP_DATA,
-                        null,
+                        this.generateLoopKey(sourceAddress.getAddress(), inputUdpHeader.getSourcePort(),
+                                destinationAddress.getAddress(), inputUdpHeader.getDestinationPort()),
                         null,
                         inputUdpPacket.getData());
         AgentMessage agentMessage =
@@ -273,6 +275,7 @@ public class IoLoopFlowProcessor {
         }
         remoteUdpChannel.writeAndFlush(agentMessage);
     }
+
     public void executeTcp(IpPacket inputIpPacket) {
         TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
         TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
