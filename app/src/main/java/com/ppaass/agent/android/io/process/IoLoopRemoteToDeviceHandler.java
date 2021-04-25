@@ -1,6 +1,7 @@
 package com.ppaass.agent.android.io.process;
 
 import android.util.Log;
+import com.ppaass.common.log.PpaassLogger;
 import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
 import com.ppaass.protocol.common.util.UUIDUtil;
@@ -8,7 +9,6 @@ import com.ppaass.protocol.vpn.message.ProxyMessage;
 import com.ppaass.protocol.vpn.message.ProxyMessageBodyType;
 import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
-import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -31,7 +31,6 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
     @Override
     public void channelRead0(ChannelHandlerContext proxyChannelContext, ProxyMessage proxyMessage)
             throws Exception {
-        Channel proxyChannel = proxyChannelContext.channel();
         ProxyMessageBodyType proxyMessageBodyType = proxyMessage.getBody().getBodyType();
         if (ProxyMessageBodyType.TCP_CONNECT_SUCCESS == proxyMessageBodyType) {
             String ioLoopKey = IoLoopUtil.INSTANCE
@@ -40,13 +39,14 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                        "Tcp loop not exist, tcp loop key = " + ioLoopKey);
+                PpaassLogger.INSTANCE
+                        .error(() -> "Tcp loop not exist on TCP_CONNECT_SUCCESS, tcp loop key: {}",
+                                () -> new Object[]{ioLoopKey});
                 return;
             }
-            Log.d(IoLoopRemoteToDeviceHandler.class.getName(),
-                    "Success connect to [" + tcpIoLoop.getDestinationAddress() + ":" + tcpIoLoop.getDestinationPort() +
-                            "]");
+            PpaassLogger.INSTANCE
+                    .debug(() -> "Success connect to {}:{}",
+                            () -> new Object[]{tcpIoLoop.getDestinationAddress(), tcpIoLoop.getDestinationPort()});
             IpPacket synAck = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildSynAck(
                     tcpIoLoop.getDestinationAddress().getAddress(),
                     tcpIoLoop.getDestinationPort(),
@@ -70,8 +70,9 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                        "Tcp loop not exist, tcp loop key = " + ioLoopKey);
+                PpaassLogger.INSTANCE
+                        .error(() -> "Tcp loop not exist on TCP_CONNECT_FAIL, tcp loop key: {}",
+                                () -> new Object[]{ioLoopKey});
                 return;
             }
             IpPacket ipPacketWroteToDevice =
@@ -97,8 +98,9 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                        "Tcp loop not exist, tcp loop key = " + ioLoopKey);
+                PpaassLogger.INSTANCE
+                        .error(() -> "Tcp loop not exist on TCP_CONNECTION_CLOSE, tcp loop key: {}",
+                                () -> new Object[]{ioLoopKey});
                 return;
             }
             IpPacket ipPacketWroteToDevice =
@@ -124,8 +126,9 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                        "Tcp loop not exist, tcp loop key = " + ioLoopKey);
+                PpaassLogger.INSTANCE
+                        .error(() -> "Tcp loop not exist on TCP_DATA_FAIL, tcp loop key: {}",
+                                () -> new Object[]{ioLoopKey});
                 return;
             }
             IpPacket ipPacketWroteToDevice =
@@ -146,20 +149,21 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
         }
         if (ProxyMessageBodyType.TCP_DATA_SUCCESS == proxyMessageBodyType) {
             String ioLoopKey = IoLoopUtil.INSTANCE
-                    .generateIoLoopKey(IpDataProtocol.UDP, proxyMessage.getBody().getSourceHost(),
+                    .generateIoLoopKey(IpDataProtocol.TCP, proxyMessage.getBody().getSourceHost(),
                             proxyMessage.getBody().getSourcePort(), proxyMessage.getBody().getTargetHost(),
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                        "Tcp loop not exist, tcp loop key = " + ioLoopKey);
+                PpaassLogger.INSTANCE
+                        .error(() -> "Tcp loop not exist on TCP_DATA_SUCCESS, tcp loop key: {}",
+                                () -> new Object[]{ioLoopKey});
                 return;
             }
-            Log.d(IoLoopRemoteToDeviceHandler.class.getName(),
-                    "Success receive data from [" + tcpIoLoop.getDestinationAddress() + ":" +
-                            tcpIoLoop.getDestinationPort() +
-                            "], data:\n" +
-                            ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(proxyMessage.getBody().getData())));
+            PpaassLogger.INSTANCE
+                    .debug(() -> "Success receive data from {}:{}, data:\n{}\n",
+                            () -> new Object[]{tcpIoLoop.getDestinationAddress(), tcpIoLoop.getDestinationPort(),
+                                    ByteBufUtil.prettyHexDump(
+                                            Unpooled.wrappedBuffer(proxyMessage.getBody().getData()))});
             String remoteActionId = UUIDUtil.INSTANCE.generateUuid();
             tcpIoLoop.setUpdateTime(System.currentTimeMillis());
 //            ByteBuf remoteMessageByteBuf = Unpooled.wrappedBuffer(proxyMessage.getBody().getData());
@@ -184,23 +188,16 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             remoteToDeviceStream);
             //Update sequence number after the data sent to device.
             tcpIoLoop.increaseAccumulateRemoteToDeviceSequenceNumber(proxyMessage.getBody().getData().length);
-            Log.d(IoLoopRemoteToDeviceHandler.class.getName(),
-                    "After send remote data to device [" + remoteActionId + "], RTD SEQUENCE before increase = " +
-                            remoteToDeviceSequenceNumberBeforeIncrease + ", tcp loop = " + tcpIoLoop);
-//            }
+            PpaassLogger.INSTANCE
+                    .debug(() -> "After send remote data to device [{}], RTD SEQUENCE before increase={}, tcp loop:\n{}\n",
+                            () -> new Object[]{
+                                    remoteActionId,
+                                    remoteToDeviceSequenceNumberBeforeIncrease,
+                                    tcpIoLoop
+                            });
             return;
         }
         if (ProxyMessageBodyType.UDP_DATA_SUCCESS == proxyMessageBodyType) {
-//            String ioLoopKey = IoLoopUtil.INSTANCE
-//                    .generateIoLoopKey(IpDataProtocol.UDP, proxyMessage.getBody().getSourceHost(),
-//                            proxyMessage.getBody().getSourcePort(), proxyMessage.getBody().getTargetHost(),
-//                            proxyMessage.getBody().getTargetPort());
-//            final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
-//            if (tcpIoLoop == null) {
-//                Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-//                        "Tcp loop not exist, tcp loop key = " + ioLoopKey);
-//                return;
-//            }
             byte[] originalDestinationAddressBytes =
                     InetAddress.getByName(proxyMessage.getBody().getTargetHost()).getAddress();
             byte[] originalSourceAddressBytes =
@@ -212,22 +209,13 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             UdpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(udpPacketWriteToDevice,
                             remoteToDeviceStream);
+            PpaassLogger.INSTANCE
+                    .debug(() -> "Success receive UDP data, proxy message:\n{}\n", () -> new Object[]{proxyMessage});
             return;
         }
         if (ProxyMessageBodyType.UDP_DATA_FAIL == proxyMessageBodyType) {
-//            String ioLoopKey = IoLoopUtil.INSTANCE
-//                    .generateIoLoopKey(IpDataProtocol.UDP, proxyMessage.getBody().getSourceHost(),
-//                            proxyMessage.getBody().getSourcePort(), proxyMessage.getBody().getTargetHost(),
-//                            proxyMessage.getBody().getTargetPort());
-//            final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
-//            if (tcpIoLoop == null) {
-//                Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-//                        "Tcp loop not exist, tcp loop key = " + ioLoopKey);
-//                return;
-//            }
-
-            Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                    "Fail to receive UDP data, proxy message:\n " + proxyMessage);
+            PpaassLogger.INSTANCE
+                    .error(() -> "Fail to receive UDP data, proxy message:\n{}\n", () -> new Object[]{proxyMessage});
             return;
         }
     }

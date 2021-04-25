@@ -5,11 +5,9 @@ import android.util.Log;
 import com.ppaass.agent.android.IPpaassConstant;
 import com.ppaass.agent.android.io.process.common.VpnNioSocketChannel;
 import com.ppaass.common.constant.ICommonConstant;
-import com.ppaass.common.exception.PpaassException;
 import com.ppaass.common.handler.AgentMessageEncoder;
 import com.ppaass.common.handler.PrintExceptionHandler;
 import com.ppaass.common.handler.ProxyMessageDecoder;
-import com.ppaass.common.log.PpaassLogger;
 import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
 import com.ppaass.protocol.base.ip.IpV4Header;
@@ -107,9 +105,9 @@ public class IoLoopFlowProcessor {
         ProxyTcpChannelFactory proxyTcpChannelFactory =
                 new ProxyTcpChannelFactory(proxyTcpChannelBootstrap);
         GenericObjectPoolConfig<Channel> config = new GenericObjectPoolConfig<>();
-        config.setMaxIdle(32);
-        config.setMaxTotal(32);
-        config.setMinIdle(32);
+        config.setMaxIdle(10240);
+        config.setMaxTotal(10240);
+        config.setMinIdle(4);
         config.setMaxWaitMillis(2000);
         config.setBlockWhenExhausted(true);
         config.setTestWhileIdle(true);
@@ -401,7 +399,6 @@ public class IoLoopFlowProcessor {
             }
             if (inputTcpHeader.isRst()) {
                 // Do nothing
-                tcpIoLoop.destroy();
                 Log.d(IoLoopFlowProcessor.class.getName(),
                         "RECEIVE [RST ACK(LOOP NOT EXIST)], just ignore, tcp header =" + inputTcpHeader +
                                 ", tcp loop = " + tcpIoLoop);
