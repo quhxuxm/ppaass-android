@@ -27,16 +27,8 @@ public class ProxyTcpChannelFactory implements PooledObjectFactory<Channel> {
     @Override
     public PooledObject<Channel> makeObject() throws Exception {
         PpaassLogger.INSTANCE.debug(() -> "Begin to create proxy channel object.");
-        final ChannelFuture proxyChannelConnectFuture;
-        try {
-            proxyChannelConnectFuture = this.proxyTcpChannelBootstrap
-                    .connect()
-                    .syncUninterruptibly();
-        } catch (Exception e) {
-            PpaassLogger.INSTANCE.error(() -> "Create proxy channel object have exception.",
-                    () -> new Object[]{e});
-            throw new PpaassException("Create proxy channel object have exception.", e);
-        }
+        final ChannelFuture proxyChannelConnectFuture = this.proxyTcpChannelBootstrap
+                .connect().sync();
         if (!proxyChannelConnectFuture.isSuccess()) {
             PpaassLogger.INSTANCE.error(() -> "Fail to create proxy channel because of exception.",
                     () -> new Object[]{proxyChannelConnectFuture.cause()});

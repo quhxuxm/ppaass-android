@@ -7,7 +7,7 @@ import org.apache.commons.pool2.impl.GenericObjectPool;
 import java.util.concurrent.ConcurrentMap;
 
 public interface ITcpIoLoopConstant {
-    String TCP_IO_LOOP_KEY_FORMAT = "%s:%s->%s:%s";
+    String IO_LOOP_KEY_FORMAT = "%s://%s:%s->%s:%s";
     AttributeKey<ConcurrentMap<String, Channel>> AGENT_CHANNELS =
             AttributeKey.valueOf("AGENT_CHANNELS");
     AttributeKey<GenericObjectPool<Channel>> CHANNEL_POOL =

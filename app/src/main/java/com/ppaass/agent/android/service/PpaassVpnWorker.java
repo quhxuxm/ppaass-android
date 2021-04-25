@@ -31,8 +31,8 @@ public class PpaassVpnWorker implements Runnable {
         if (this.alive) {
             return;
         }
-        this.ioLoopFlowProcessor.prepareResources();
         this.alive = true;
+        this.ioLoopFlowProcessor.prepareResources();
         this.executor.execute(this);
     }
 

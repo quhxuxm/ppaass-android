@@ -10,6 +10,7 @@ import com.ppaass.common.handler.AgentMessageEncoder;
 import com.ppaass.common.handler.PrintExceptionHandler;
 import com.ppaass.common.handler.ProxyMessageDecoder;
 import com.ppaass.common.log.PpaassLogger;
+import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
 import com.ppaass.protocol.base.ip.IpV4Header;
 import com.ppaass.protocol.base.tcp.TcpHeader;
@@ -43,10 +44,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.Executors;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-
-import static com.ppaass.agent.android.io.process.ITcpIoLoopConstant.TCP_IO_LOOP_KEY_FORMAT;
 
 public class IoLoopFlowProcessor {
     private static final int THREAD_NUMBER = 16;
@@ -57,12 +55,13 @@ public class IoLoopFlowProcessor {
     private final byte[] proxyPublicKeyBytes;
     private final ReentrantReadWriteLock reentrantReadWriteLock;
     private GenericObjectPool<Channel> proxyTcpChannelPool;
+    private final VpnService vpnService;
 
     public IoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream, byte[] agentPrivateKeyBytes,
                                byte[] proxyPublicKeyBytes) {
         this.agentPrivateKeyBytes = agentPrivateKeyBytes;
         this.proxyPublicKeyBytes = proxyPublicKeyBytes;
-        this.proxyTcpChannelBootstrap = this.createProxyTcpChannelBootstrap(vpnService, remoteToDeviceStream);
+        this.vpnService = vpnService;
         this.tcpIoLoops = new ConcurrentHashMap<>();
         this.remoteToDeviceStream = remoteToDeviceStream;
         this.reentrantReadWriteLock = new ReentrantReadWriteLock();
@@ -75,14 +74,13 @@ public class IoLoopFlowProcessor {
     public void prepareResources() {
         try {
             this.reentrantReadWriteLock.writeLock().lock();
-            Executors.newSingleThreadExecutor().submit(() -> {
-                try {
-                    this.reentrantReadWriteLock.writeLock().lock();
-                    this.proxyTcpChannelPool = this.createProxyTcpChannelPool(this.proxyTcpChannelBootstrap);
-                } finally {
-                    this.reentrantReadWriteLock.writeLock().unlock();
-                }
-            });
+            try {
+                this.reentrantReadWriteLock.writeLock().lock();
+                this.proxyTcpChannelBootstrap = this.createProxyTcpChannelBootstrap(vpnService, remoteToDeviceStream);
+                this.proxyTcpChannelPool = this.createProxyTcpChannelPool(this.proxyTcpChannelBootstrap);
+            } finally {
+                this.reentrantReadWriteLock.writeLock().unlock();
+            }
         } finally {
             this.reentrantReadWriteLock.writeLock().unlock();
         }
@@ -131,13 +129,13 @@ public class IoLoopFlowProcessor {
         abandonedConfig.setRemoveAbandonedTimeout(Integer.MAX_VALUE);
         result.setAbandonedConfig(abandonedConfig);
         proxyTcpChannelFactory.attachPool(result);
-        try {
-            result.preparePool();
-        } catch (Exception e) {
-            PpaassLogger.INSTANCE
-                    .error(() -> "Fail to initialize proxy channel pool because of exception.", () -> new Object[]{e});
-            throw new PpaassException("Fail to initialize proxy channel pool.", e);
-        }
+//        try {
+//            result.preparePool();
+//        } catch (Exception e) {
+//            PpaassLogger.INSTANCE
+//                    .error(() -> "Fail to initialize proxy channel pool because of exception.", () -> new Object[]{e});
+//            throw new PpaassException("Fail to initialize proxy channel pool.", e);
+//        }
         return result;
     }
 
@@ -175,22 +173,12 @@ public class IoLoopFlowProcessor {
         return proxyTcpChannelBootstrap;
     }
 
-    private String generateLoopKey(byte[] sourceAddressInBytes, int sourcePort, byte[] destinationAddressInBytes,
-                                   int destinationPort) {
-        try {
-            return String.format(TCP_IO_LOOP_KEY_FORMAT, InetAddress.getByAddress(sourceAddressInBytes), sourcePort,
-                    InetAddress.getByAddress(destinationAddressInBytes), destinationPort);
-        } catch (UnknownHostException e) {
-            throw new IllegalArgumentException(e);
-        }
-    }
-
     private TcpIoLoop getOrCreateTcpIoLoop(IpPacket ipPacket, Channel proxyTcpChannel) {
         IpV4Header ipV4Header = (IpV4Header) ipPacket.getHeader();
         TcpPacket tcpPacket = (TcpPacket) ipPacket.getData();
-        TcpHeader tcpHeader = tcpPacket.getHeader();
         final String tcpIoLoopKey =
-                this.generateLoopKey(ipV4Header.getSourceAddress(), tcpPacket.getHeader().getSourcePort()
+                IoLoopUtil.INSTANCE.generateIoLoopKey(IpDataProtocol.TCP, ipV4Header.getSourceAddress(),
+                        tcpPacket.getHeader().getSourcePort()
                         , ipV4Header.getDestinationAddress(), tcpPacket.getHeader().getDestinationPort()
                 );
         return this.tcpIoLoops.computeIfAbsent(tcpIoLoopKey,
@@ -258,7 +246,8 @@ public class IoLoopFlowProcessor {
                         destinationAddress.getHostAddress(),
                         inputUdpHeader.getDestinationPort(),
                         AgentMessageBodyType.UDP_DATA,
-                        this.generateLoopKey(sourceAddress.getAddress(), inputUdpHeader.getSourcePort(),
+                        IoLoopUtil.INSTANCE.generateIoLoopKey(IpDataProtocol.UDP, sourceAddress.getAddress(),
+                                inputUdpHeader.getSourcePort(),
                                 destinationAddress.getAddress(), inputUdpHeader.getDestinationPort()),
                         null,
                         inputUdpPacket.getData());
@@ -306,7 +295,8 @@ public class IoLoopFlowProcessor {
         TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
         TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
         final String tcpIoLoopKey =
-                this.generateLoopKey(inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort()
+                IoLoopUtil.INSTANCE.generateIoLoopKey(IpDataProtocol.TCP, inputIpV4Header.getSourceAddress(),
+                        inputTcpHeader.getSourcePort()
                         , inputIpV4Header.getDestinationAddress(), inputTcpHeader.getDestinationPort()
                 );
         TcpIoLoop existingTcpIoLoop = this.tcpIoLoops.get(tcpIoLoopKey);
@@ -390,7 +380,8 @@ public class IoLoopFlowProcessor {
         TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
         byte[] data = inputTcpPacket.getData();
         final String tcpIoLoopKey =
-                this.generateLoopKey(inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort()
+                IoLoopUtil.INSTANCE.generateIoLoopKey(IpDataProtocol.TCP, inputIpV4Header.getSourceAddress(),
+                        inputTcpHeader.getSourcePort()
                         , inputIpV4Header.getDestinationAddress(), inputTcpHeader.getDestinationPort()
                 );
         TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(tcpIoLoopKey);
@@ -559,7 +550,8 @@ public class IoLoopFlowProcessor {
         TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
         TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
         final String tcpIoLoopKey =
-                this.generateLoopKey(inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort()
+                IoLoopUtil.INSTANCE.generateIoLoopKey(IpDataProtocol.TCP, inputIpV4Header.getSourceAddress(),
+                        inputTcpHeader.getSourcePort()
                         , inputIpV4Header.getDestinationAddress(), inputTcpHeader.getDestinationPort()
                 );
         TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(tcpIoLoopKey);
@@ -582,7 +574,8 @@ public class IoLoopFlowProcessor {
         TcpPacket inputTcpPacket = (TcpPacket) inputIpPacket.getData();
         TcpHeader inputTcpHeader = inputTcpPacket.getHeader();
         final String tcpIoLoopKey =
-                this.generateLoopKey(inputIpV4Header.getSourceAddress(), inputTcpHeader.getSourcePort()
+                IoLoopUtil.INSTANCE.generateIoLoopKey(IpDataProtocol.TCP, inputIpV4Header.getSourceAddress(),
+                        inputTcpHeader.getSourcePort()
                         , inputIpV4Header.getDestinationAddress(), inputTcpHeader.getDestinationPort()
                 );
         TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(tcpIoLoopKey);
