@@ -13,10 +13,6 @@ import static com.ppaass.agent.android.IPpaassConstant.VPN_ADDRESS;
 import static com.ppaass.agent.android.IPpaassConstant.VPN_ROUTE;
 
 public class PpaassVpnService extends VpnService {
-    static {
-        PpaassLoggerFactory.INSTANCE.init("com.ppaass.agent.android.PpaasAndroidAgentLogger");
-    }
-
     private final IPpaassLogger logger = PpaassLoggerFactory.INSTANCE.getLogger();
     private FileInputStream vpnInputStream;
     private FileOutputStream vpnOutputStream;

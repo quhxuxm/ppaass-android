@@ -108,9 +108,9 @@ public class IoLoopFlowProcessor {
         ProxyTcpChannelFactory proxyTcpChannelFactory =
                 new ProxyTcpChannelFactory(proxyTcpChannelBootstrap);
         GenericObjectPoolConfig<Channel> config = new GenericObjectPoolConfig<>();
-        config.setMaxIdle(1024);
-        config.setMaxTotal(1024);
-        config.setMinIdle(4);
+        config.setMaxIdle(64);
+        config.setMaxTotal(64);
+        config.setMinIdle(32);
         config.setMaxWaitMillis(2000);
         config.setBlockWhenExhausted(true);
         config.setTestWhileIdle(true);

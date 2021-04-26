@@ -8,8 +8,13 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import com.ppaass.agent.android.R;
 import com.ppaass.agent.android.service.PpaassVpnService;
+import com.ppaass.common.log.PpaassLoggerFactory;
 
 public class MainActivity extends AppCompatActivity {
+    static {
+        PpaassLoggerFactory.INSTANCE.init("com.ppaass.agent.android.PpaasAndroidAgentLogger");
+    }
+
     private static final int VPN_SERVICE_REQUEST_CODE = 1;
 
     @Override
