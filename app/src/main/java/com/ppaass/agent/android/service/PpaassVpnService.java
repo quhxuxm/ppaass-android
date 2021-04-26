@@ -3,20 +3,21 @@ package com.ppaass.agent.android.service;
 import android.content.Intent;
 import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
-import android.util.Log;
 import com.ppaass.agent.android.R;
-import org.apache.logging.log4j.core.LoggerContext;
-import org.apache.logging.log4j.core.config.ConfigurationSource;
-import org.apache.logging.log4j.core.config.Configurator;
+import com.ppaass.common.log.IPpaassLogger;
+import com.ppaass.common.log.PpaassLoggerFactory;
 
 import java.io.*;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 
 import static com.ppaass.agent.android.IPpaassConstant.VPN_ADDRESS;
 import static com.ppaass.agent.android.IPpaassConstant.VPN_ROUTE;
 
 public class PpaassVpnService extends VpnService {
+    static {
+        PpaassLoggerFactory.INSTANCE.init("com.ppaass.agent.android.PpaasAndroidAgentLogger");
+    }
+
+    private final IPpaassLogger logger = PpaassLoggerFactory.INSTANCE.getLogger();
     private FileInputStream vpnInputStream;
     private FileOutputStream vpnOutputStream;
     private ParcelFileDescriptor vpnInterface;
@@ -28,13 +29,6 @@ public class PpaassVpnService extends VpnService {
     @Override
     public void onCreate() {
         super.onCreate();
-        try {
-            ConfigurationSource log4jConfigurationSource= new ConfigurationSource(this.getResources().openRawResource(R.raw.log4j2));
-            LoggerContext loggerContext= Configurator.initialize(null, log4jConfigurationSource);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
         byte[] agentPrivateKeyBytes;
         try {
             InputStream agentPrivateKeyStream =
@@ -42,11 +36,11 @@ public class PpaassVpnService extends VpnService {
             agentPrivateKeyBytes = new byte[agentPrivateKeyStream.available()];
             int readAgentPrivateKeyBytesResult = agentPrivateKeyStream.read(agentPrivateKeyBytes);
             if (readAgentPrivateKeyBytesResult < 0) {
-                Log.e(PpaassVpnService.class.getName(), "Fail to read agent private key because of read length < 0.");
+                logger.error(() -> "Fail to read agent private key because of read length < 0.");
                 throw new RuntimeException();
             }
         } catch (IOException e) {
-            Log.e(PpaassVpnService.class.getName(), "Fail to read agent private key because of exception.", e);
+            logger.error(() -> "Fail to read agent private key because of exception.", () -> new Object[]{e});
             throw new RuntimeException(e);
         }
         byte[] proxyPublicKeyBytes;
@@ -56,11 +50,11 @@ public class PpaassVpnService extends VpnService {
             proxyPublicKeyBytes = new byte[proxyPublicKeyStream.available()];
             int readProxyPublicKeyBytesResult = proxyPublicKeyStream.read(proxyPublicKeyBytes);
             if (readProxyPublicKeyBytesResult < 0) {
-                Log.e(PpaassVpnService.class.getName(), "Fail to read proxy public key because of read length < 0.");
+                logger.error(() -> "Fail to read agent public key because of read length < 0.");
                 throw new RuntimeException();
             }
         } catch (IOException e) {
-            Log.e(PpaassVpnService.class.getName(), "Fail to read proxy public key because of exception.", e);
+            logger.error(() -> "Fail to read agent public key because of exception.", () -> new Object[]{e});
             throw new RuntimeException(e);
         }
         if (this.vpnInterface == null) {
@@ -94,9 +88,11 @@ public class PpaassVpnService extends VpnService {
             this.vpnInputStream.close();
             this.vpnOutputStream.close();
             this.vpnInterface.close();
-            Log.d(PpaassVpnService.class.getName(), "Close vpn service files.");
+            logger.error(() -> "Close vpn service files.");
         } catch (IOException e) {
-            Log.e(PpaassVpnService.class.getName(), "Close vpn service files exception happen.", e);
+            logger.error(() -> "Close vpn service files exception happen.", () -> new Object[]{
+                    e
+            });
         }
     }
 }

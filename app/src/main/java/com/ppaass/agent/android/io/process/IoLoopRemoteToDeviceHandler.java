@@ -1,7 +1,7 @@
 package com.ppaass.agent.android.io.process;
 
-import android.util.Log;
-import com.ppaass.common.log.PpaassLogger;
+import com.ppaass.common.log.IPpaassLogger;
+import com.ppaass.common.log.PpaassLoggerFactory;
 import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
 import com.ppaass.protocol.common.util.UUIDUtil;
@@ -19,6 +19,7 @@ import java.util.concurrent.ConcurrentMap;
 
 @ChannelHandler.Sharable
 public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<ProxyMessage> {
+    private static final IPpaassLogger logger = PpaassLoggerFactory.INSTANCE.getLogger();
     private final OutputStream remoteToDeviceStream;
     private final ConcurrentMap<String, TcpIoLoop> tcpIoLoops;
 
@@ -39,12 +40,12 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                PpaassLogger.INSTANCE
+                logger
                         .error(() -> "Tcp loop not exist on TCP_CONNECT_SUCCESS, tcp loop key: {}",
                                 () -> new Object[]{ioLoopKey});
                 return;
             }
-            PpaassLogger.INSTANCE
+            logger
                     .debug(() -> "Success connect to {}:{}",
                             () -> new Object[]{tcpIoLoop.getDestinationAddress(), tcpIoLoop.getDestinationPort()});
             IpPacket synAck = TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildSynAck(
@@ -70,7 +71,7 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                PpaassLogger.INSTANCE
+                logger
                         .error(() -> "Tcp loop not exist on TCP_CONNECT_FAIL, tcp loop key: {}",
                                 () -> new Object[]{ioLoopKey});
                 return;
@@ -86,7 +87,7 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
-            PpaassLogger.INSTANCE.error(() -> "Fail connect target server, tcp loop:\n{}\n", () -> new Object[]{
+            logger.error(() -> "Fail connect target server, tcp loop:\n{}\n", () -> new Object[]{
                     tcpIoLoop
             });
             tcpIoLoop.destroy();
@@ -99,7 +100,7 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                PpaassLogger.INSTANCE
+                logger
                         .error(() -> "Tcp loop not exist on TCP_CONNECTION_CLOSE, tcp loop key: {}",
                                 () -> new Object[]{ioLoopKey});
                 return;
@@ -115,7 +116,7 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
-            PpaassLogger.INSTANCE.error(() -> "Close connection of target server, tcp loop:\n{}\n", () -> new Object[]{
+            logger.error(() -> "Close connection of target server, tcp loop:\n{}\n", () -> new Object[]{
                     tcpIoLoop
             });
             tcpIoLoop.destroy();
@@ -128,7 +129,7 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                PpaassLogger.INSTANCE
+                logger
                         .error(() -> "Tcp loop not exist on TCP_DATA_FAIL, tcp loop key: {}",
                                 () -> new Object[]{ioLoopKey});
                 return;
@@ -144,9 +145,11 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
-            PpaassLogger.INSTANCE.error(() -> "Fail to receive TCP data (TCP_DATA_FAIL) on tcp loop, reset connection, tcp loop:\n{}\n", () -> new Object[]{
-                    tcpIoLoop
-            });
+            logger.error(
+                    () -> "Fail to receive TCP data (TCP_DATA_FAIL) on tcp loop, reset connection, tcp loop:\n{}\n",
+                    () -> new Object[]{
+                            tcpIoLoop
+                    });
             tcpIoLoop.destroy();
             return;
         }
@@ -157,12 +160,12 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             proxyMessage.getBody().getTargetPort());
             final TcpIoLoop tcpIoLoop = this.tcpIoLoops.get(ioLoopKey);
             if (tcpIoLoop == null) {
-                PpaassLogger.INSTANCE
+                logger
                         .error(() -> "Tcp loop not exist on TCP_DATA_SUCCESS, tcp loop key: {}",
                                 () -> new Object[]{ioLoopKey});
                 return;
             }
-            PpaassLogger.INSTANCE
+            logger
                     .debug(() -> "Success receive data from {}:{}, data:\n{}\n",
                             () -> new Object[]{tcpIoLoop.getDestinationAddress(), tcpIoLoop.getDestinationPort(),
                                     ByteBufUtil.prettyHexDump(
@@ -191,7 +194,7 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
                             remoteToDeviceStream);
             //Update sequence number after the data sent to device.
             tcpIoLoop.increaseAccumulateRemoteToDeviceSequenceNumber(proxyMessage.getBody().getData().length);
-            PpaassLogger.INSTANCE
+            logger
                     .debug(() -> "After send remote data to device [{}], RTD SEQUENCE before increase={}, tcp loop:\n{}\n",
                             () -> new Object[]{
                                     remoteActionId,
@@ -212,12 +215,12 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             UdpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(udpPacketWriteToDevice,
                             remoteToDeviceStream);
-            PpaassLogger.INSTANCE
+            logger
                     .debug(() -> "Success receive UDP data, proxy message:\n{}\n", () -> new Object[]{proxyMessage});
             return;
         }
         if (ProxyMessageBodyType.UDP_DATA_FAIL == proxyMessageBodyType) {
-            PpaassLogger.INSTANCE
+            logger
                     .error(() -> "Fail to receive UDP data, proxy message:\n{}\n", () -> new Object[]{proxyMessage});
             return;
         }

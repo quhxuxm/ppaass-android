@@ -1,7 +1,7 @@
 package com.ppaass.agent.android.io.process;
 
-import android.util.Log;
-import com.ppaass.common.log.PpaassLogger;
+import com.ppaass.common.log.IPpaassLogger;
+import com.ppaass.common.log.PpaassLoggerFactory;
 import com.ppaass.protocol.base.ip.*;
 import com.ppaass.protocol.base.udp.UdpPacket;
 import com.ppaass.protocol.base.udp.UdpPacketBuilder;
@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 
 class UdpIoLoopRemoteToDeviceWriter {
+    private static final IPpaassLogger logger = PpaassLoggerFactory.INSTANCE.getLogger();
     public static final UdpIoLoopRemoteToDeviceWriter INSTANCE = new UdpIoLoopRemoteToDeviceWriter();
 
     private UdpIoLoopRemoteToDeviceWriter() {
@@ -40,12 +41,12 @@ class UdpIoLoopRemoteToDeviceWriter {
     public void writeIpPacketToDevice(IpPacket ipPacket,
                                       OutputStream remoteToDeviceStream) {
         try {
-            PpaassLogger.INSTANCE
+            logger
                     .debug(() -> "Write UDP packet to app.", () -> new Object[]{ipPacket});
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
             remoteToDeviceStream.flush();
         } catch (IOException e) {
-            PpaassLogger.INSTANCE
+            logger
                     .error(() -> "Fail to write ip packet (UDP) to app because of exception.", () -> new Object[]{e});
         }
     }

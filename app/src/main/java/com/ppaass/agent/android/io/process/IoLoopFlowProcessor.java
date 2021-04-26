@@ -8,7 +8,8 @@ import com.ppaass.common.constant.ICommonConstant;
 import com.ppaass.common.handler.AgentMessageEncoder;
 import com.ppaass.common.handler.PrintExceptionHandler;
 import com.ppaass.common.handler.ProxyMessageDecoder;
-import com.ppaass.common.log.PpaassLogger;
+import com.ppaass.common.log.IPpaassLogger;
+import com.ppaass.common.log.PpaassLoggerFactory;
 import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
 import com.ppaass.protocol.base.ip.IpV4Header;
@@ -46,6 +47,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 public class IoLoopFlowProcessor {
+    private static final IPpaassLogger logger = PpaassLoggerFactory.INSTANCE.getLogger();
     private static final int THREAD_NUMBER = 16;
     private Bootstrap proxyTcpChannelBootstrap;
     private final ConcurrentMap<String, TcpIoLoop> tcpIoLoops;
@@ -261,7 +263,7 @@ public class IoLoopFlowProcessor {
         } catch (Exception e) {
             return;
         }
-        PpaassLogger.INSTANCE.debug(() -> "Write UDP data to proxy, agent message:\n{}\n", () -> new Object[]{
+        logger.debug(() -> "Write UDP data to proxy, agent message:\n{}\n", () -> new Object[]{
                 agentMessage
         });
         remoteUdpChannel.writeAndFlush(agentMessage);
