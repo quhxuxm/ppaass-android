@@ -7,8 +7,9 @@ public interface IPpaassConstant {
     String PROXY_PUBLIC_KEY_INTENT_DATA_NAME = "proxyPublicKey";
     String VPN_ADDRESS = "99.99.99.99";
     String VPN_ROUTE = "0.0.0.0";
-    String PROXY_SERVER_ADDRESS = "45.63.92.64";
-    int PROXY_SERVER_PORT = 80;
+//    String PROXY_SERVER_ADDRESS = "45.63.92.64";
+    String PROXY_SERVER_ADDRESS = "10.175.4.220";
+    int PROXY_SERVER_PORT = 6888;
     String USER_TOKEN = "QH_VPN_ANDROID";
     String AGENT_INSTANCE_ID = UUIDUtil.INSTANCE.generateUuid();
 }

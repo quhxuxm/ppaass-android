@@ -8,6 +8,7 @@ import com.ppaass.common.constant.ICommonConstant;
 import com.ppaass.common.handler.AgentMessageEncoder;
 import com.ppaass.common.handler.PrintExceptionHandler;
 import com.ppaass.common.handler.ProxyMessageDecoder;
+import com.ppaass.common.log.PpaassLogger;
 import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
 import com.ppaass.protocol.base.ip.IpV4Header;
@@ -105,8 +106,8 @@ public class IoLoopFlowProcessor {
         ProxyTcpChannelFactory proxyTcpChannelFactory =
                 new ProxyTcpChannelFactory(proxyTcpChannelBootstrap);
         GenericObjectPoolConfig<Channel> config = new GenericObjectPoolConfig<>();
-        config.setMaxIdle(10240);
-        config.setMaxTotal(10240);
+        config.setMaxIdle(1024);
+        config.setMaxTotal(1024);
         config.setMinIdle(4);
         config.setMaxWaitMillis(2000);
         config.setBlockWhenExhausted(true);
@@ -260,6 +261,9 @@ public class IoLoopFlowProcessor {
         } catch (Exception e) {
             return;
         }
+        PpaassLogger.INSTANCE.debug(() -> "Write UDP data to proxy, agent message:\n{}\n", () -> new Object[]{
+                agentMessage
+        });
         remoteUdpChannel.writeAndFlush(agentMessage);
     }
 

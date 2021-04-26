@@ -24,6 +24,14 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/NOTICE.txt'
+    }
 }
 
 dependencies {
@@ -31,6 +39,9 @@ dependencies {
     implementation "io.netty:netty-all:4.1.63.Final"
     implementation "org.slf4j:slf4j-api:1.7.30"
     implementation "org.slf4j:slf4j-android:1.7.30"
+    implementation "org.apache.logging.log4j:log4j-api:2.14.0"
+    implementation "org.apache.logging.log4j:log4j-core:2.14.0"
+    implementation "de.mindpipe.android:android-logging-log4j:1.0.3"
     implementation "org.lz4:lz4-java:1.7.1"
     implementation "com.ppaass:common:1.0-SNAPSHOT"
     implementation "com.ppaass.protocol:base:1.0-SNAPSHOT"
@@ -42,3 +53,6 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.1'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.2.0'
 }
+
+
+

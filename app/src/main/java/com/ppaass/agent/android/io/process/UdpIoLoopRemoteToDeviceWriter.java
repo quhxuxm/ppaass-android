@@ -1,6 +1,7 @@
 package com.ppaass.agent.android.io.process;
 
 import android.util.Log;
+import com.ppaass.common.log.PpaassLogger;
 import com.ppaass.protocol.base.ip.*;
 import com.ppaass.protocol.base.udp.UdpPacket;
 import com.ppaass.protocol.base.udp.UdpPacketBuilder;
@@ -39,12 +40,13 @@ class UdpIoLoopRemoteToDeviceWriter {
     public void writeIpPacketToDevice(IpPacket ipPacket,
                                       OutputStream remoteToDeviceStream) {
         try {
+            PpaassLogger.INSTANCE
+                    .debug(() -> "Write UDP packet to app.", () -> new Object[]{ipPacket});
             remoteToDeviceStream.write(IpPacketWriter.INSTANCE.write(ipPacket));
             remoteToDeviceStream.flush();
         } catch (IOException e) {
-            Log.e(UdpIoLoopRemoteToDeviceWriter.class.getName(),
-                    "Fail to write ip packet (UDP) to app because of exception.",
-                    e);
+            PpaassLogger.INSTANCE
+                    .error(() -> "Fail to write ip packet (UDP) to app because of exception.", () -> new Object[]{e});
         }
     }
 }

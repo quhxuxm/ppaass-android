@@ -5,6 +5,9 @@ import android.net.VpnService;
 import android.os.ParcelFileDescriptor;
 import android.util.Log;
 import com.ppaass.agent.android.R;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.ConfigurationSource;
+import org.apache.logging.log4j.core.config.Configurator;
 
 import java.io.*;
 import java.net.InetAddress;
@@ -25,6 +28,13 @@ public class PpaassVpnService extends VpnService {
     @Override
     public void onCreate() {
         super.onCreate();
+        try {
+            ConfigurationSource log4jConfigurationSource= new ConfigurationSource(this.getResources().openRawResource(R.raw.log4j2));
+            LoggerContext loggerContext= Configurator.initialize(null, log4jConfigurationSource);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
         byte[] agentPrivateKeyBytes;
         try {
             InputStream agentPrivateKeyStream =

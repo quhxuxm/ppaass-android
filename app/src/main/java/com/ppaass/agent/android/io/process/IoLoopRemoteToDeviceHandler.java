@@ -86,8 +86,9 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
-            Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                    "Fail to connect on tcp loop = " + tcpIoLoop);
+            PpaassLogger.INSTANCE.error(() -> "Fail connect target server, tcp loop:\n{}\n", () -> new Object[]{
+                    tcpIoLoop
+            });
             tcpIoLoop.destroy();
             return;
         }
@@ -114,8 +115,9 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
-            Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                    "Close connect on tcp loop = " + tcpIoLoop);
+            PpaassLogger.INSTANCE.error(() -> "Close connection of target server, tcp loop:\n{}\n", () -> new Object[]{
+                    tcpIoLoop
+            });
             tcpIoLoop.destroy();
             return;
         }
@@ -142,8 +144,9 @@ public class IoLoopRemoteToDeviceHandler extends SimpleChannelInboundHandler<Pro
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, tcpIoLoop.getKey(),
                             remoteToDeviceStream);
-            Log.e(IoLoopRemoteToDeviceHandler.class.getName(),
-                    "Fail to receive TCP data (FAIL_TCP) on tcp loop, reset connection, tcp loop = " + tcpIoLoop);
+            PpaassLogger.INSTANCE.error(() -> "Fail to receive TCP data (TCP_DATA_FAIL) on tcp loop, reset connection, tcp loop:\n{}\n", () -> new Object[]{
+                    tcpIoLoop
+            });
             tcpIoLoop.destroy();
             return;
         }
