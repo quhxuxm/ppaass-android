@@ -23,15 +23,16 @@ public class TcpIoLoop {
     private final ConcurrentMap<String, TcpIoLoop> container;
     private final AtomicLong accumulateRemoteToDeviceAcknowledgementNumber;
     private final AtomicLong accumulateRemoteToDeviceSequenceNumber;
-    private final GenericObjectPool<Channel> proxyTcpChannelPool;
+//    private final GenericObjectPool<Channel> proxyTcpChannelPool;
 
     public TcpIoLoop(String key, long updateTime, byte[] sourceAddressInBytes, byte[] destinationAddressInBytes,
                      int sourcePort,
                      int destinationPort,
-                     ConcurrentMap<String, TcpIoLoop> container,
-                     GenericObjectPool<Channel> proxyTcpChannelPool) {
+                     ConcurrentMap<String, TcpIoLoop> container
+//                     GenericObjectPool<Channel> proxyTcpChannelPool
+    ) {
         this.updateTime = new AtomicLong(updateTime);
-        this.proxyTcpChannelPool = proxyTcpChannelPool;
+//        this.proxyTcpChannelPool = proxyTcpChannelPool;
         try {
             this.sourceAddress = InetAddress.getByAddress(sourceAddressInBytes);
         } catch (UnknownHostException e) {
@@ -154,7 +155,7 @@ public class TcpIoLoop {
         this.status.set(TcpIoLoopStatus.CLOSED);
         this.accumulateRemoteToDeviceSequenceNumber.set(this.generateRandomNumber());
         this.accumulateRemoteToDeviceAcknowledgementNumber.set(0);
-        this.proxyTcpChannelPool.returnObject(this.proxyTcpChannel.get());
+//        this.proxyTcpChannelPool.returnObject(this.proxyTcpChannel.get());
 //        if (this.remoteChannel.get() != null) {
 //            if (this.remoteChannel.get().isOpen()) {
 //                this.remoteChannel.get().close();

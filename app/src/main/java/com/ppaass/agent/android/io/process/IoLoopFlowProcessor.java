@@ -55,7 +55,7 @@ public class IoLoopFlowProcessor {
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
     private final ReentrantReadWriteLock reentrantReadWriteLock;
-    private GenericObjectPool<Channel> proxyTcpChannelPool;
+//    private GenericObjectPool<Channel> proxyTcpChannelPool;
     private final VpnService vpnService;
 
     public IoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream, byte[] agentPrivateKeyBytes,
@@ -78,7 +78,7 @@ public class IoLoopFlowProcessor {
             try {
                 this.reentrantReadWriteLock.writeLock().lock();
                 this.proxyTcpChannelBootstrap = this.createProxyTcpChannelBootstrap(vpnService, remoteToDeviceStream);
-                this.proxyTcpChannelPool = this.createProxyTcpChannelPool(this.proxyTcpChannelBootstrap);
+//                this.proxyTcpChannelPool = this.createProxyTcpChannelPool(this.proxyTcpChannelBootstrap);
             } finally {
                 this.reentrantReadWriteLock.writeLock().unlock();
             }
@@ -93,52 +93,52 @@ public class IoLoopFlowProcessor {
             if (this.proxyTcpChannelBootstrap != null) {
                 this.proxyTcpChannelBootstrap.config().group().shutdownGracefully();
             }
-            if (this.proxyTcpChannelPool != null) {
-                this.proxyTcpChannelPool.close();
-                this.proxyTcpChannelPool.clear();
-            }
+//            if (this.proxyTcpChannelPool != null) {
+//                this.proxyTcpChannelPool.close();
+//                this.proxyTcpChannelPool.clear();
+//            }
             this.proxyTcpChannelBootstrap = null;
-            this.proxyTcpChannelPool = null;
+//            this.proxyTcpChannelPool = null;
         } finally {
             this.reentrantReadWriteLock.writeLock().unlock();
         }
     }
 
-    private GenericObjectPool<Channel> createProxyTcpChannelPool(Bootstrap proxyTcpChannelBootstrap) {
-        ProxyTcpChannelFactory proxyTcpChannelFactory =
-                new ProxyTcpChannelFactory(proxyTcpChannelBootstrap);
-        GenericObjectPoolConfig<Channel> config = new GenericObjectPoolConfig<>();
-        config.setMaxIdle(64);
-        config.setMaxTotal(64);
-        config.setMinIdle(8);
-        config.setMaxWaitMillis(2000);
-        config.setBlockWhenExhausted(true);
-        config.setTestWhileIdle(true);
-        config.setTestOnBorrow(true);
-        config.setTestOnCreate(false);
-        config.setTestOnReturn(true);
-        config.setEvictionPolicy(new ProxyTcpChannelPoolEvictionPolicy());
-        config.setTimeBetweenEvictionRunsMillis(60000);
-        config.setMinEvictableIdleTimeMillis(-1);
-        config.setSoftMinEvictableIdleTimeMillis(1800000);
-        config.setNumTestsPerEvictionRun(-1);
-        config.setJmxEnabled(false);
-        GenericObjectPool<Channel> result = new GenericObjectPool<>(proxyTcpChannelFactory, config);
-        AbandonedConfig abandonedConfig = new AbandonedConfig();
-        abandonedConfig.setRemoveAbandonedOnMaintenance(true);
-        abandonedConfig.setRemoveAbandonedOnBorrow(true);
-        abandonedConfig.setRemoveAbandonedTimeout(Integer.MAX_VALUE);
-        result.setAbandonedConfig(abandonedConfig);
-        proxyTcpChannelFactory.attachPool(result);
-//        try {
-//            result.preparePool();
-//        } catch (Exception e) {
-//            PpaassLogger.INSTANCE
-//                    .error(() -> "Fail to initialize proxy channel pool because of exception.", () -> new Object[]{e});
-//            throw new PpaassException("Fail to initialize proxy channel pool.", e);
-//        }
-        return result;
-    }
+//    private GenericObjectPool<Channel> createProxyTcpChannelPool(Bootstrap proxyTcpChannelBootstrap) {
+//        ProxyTcpChannelFactory proxyTcpChannelFactory =
+//                new ProxyTcpChannelFactory(proxyTcpChannelBootstrap);
+//        GenericObjectPoolConfig<Channel> config = new GenericObjectPoolConfig<Channel>();
+//        config.setMaxIdle(32);
+//        config.setMaxTotal(32);
+//        config.setMinIdle(8);
+//        config.setMaxWaitMillis(2000);
+//        config.setBlockWhenExhausted(true);
+//        config.setTestWhileIdle(true);
+//        config.setTestOnBorrow(true);
+//        config.setTestOnCreate(false);
+//        config.setTestOnReturn(true);
+//        config.setEvictionPolicy(new ProxyTcpChannelPoolEvictionPolicy());
+//        config.setTimeBetweenEvictionRunsMillis(60000);
+//        config.setMinEvictableIdleTimeMillis(-1);
+//        config.setSoftMinEvictableIdleTimeMillis(1800000);
+//        config.setNumTestsPerEvictionRun(-1);
+//        config.setJmxEnabled(false);
+//        GenericObjectPool<Channel> result = new GenericObjectPool<>(proxyTcpChannelFactory, config);
+//        AbandonedConfig abandonedConfig = new AbandonedConfig();
+//        abandonedConfig.setRemoveAbandonedOnMaintenance(true);
+//        abandonedConfig.setRemoveAbandonedOnBorrow(true);
+//        abandonedConfig.setRemoveAbandonedTimeout(Integer.MAX_VALUE);
+//        result.setAbandonedConfig(abandonedConfig);
+//        proxyTcpChannelFactory.attachPool(result);
+////        try {
+////            result.preparePool();
+////        } catch (Exception e) {
+////            PpaassLogger.INSTANCE
+////                    .error(() -> "Fail to initialize proxy channel pool because of exception.", () -> new Object[]{e});
+////            throw new PpaassException("Fail to initialize proxy channel pool.", e);
+////        }
+//        return result;
+//    }
 
     private Bootstrap createProxyTcpChannelBootstrap(VpnService vpnService, OutputStream remoteToDeviceStream) {
         System.setProperty("io.netty.selectorAutoRebuildThreshold", Integer.toString(Integer.MAX_VALUE));
@@ -189,7 +189,9 @@ public class IoLoopFlowProcessor {
                                     ipV4Header.getSourceAddress(),
                                     ipV4Header.getDestinationAddress(),
                                     tcpPacket.getHeader().getSourcePort(),
-                                    tcpPacket.getHeader().getDestinationPort(), this.tcpIoLoops, proxyTcpChannelPool);
+                                    tcpPacket.getHeader().getDestinationPort(), this.tcpIoLoops
+//                                    , proxyTcpChannelPool
+                            );
                     tcpIoLoop.setStatus(TcpIoLoopStatus.LISTEN);
                     tcpIoLoop.setProxyTcpChannel(proxyTcpChannel);
 //                    TcpHeaderOption mssOption = null;
@@ -259,7 +261,8 @@ public class IoLoopFlowProcessor {
                         agentMessageBody);
         Channel remoteUdpChannel = null;
         try {
-            remoteUdpChannel = this.proxyTcpChannelPool.borrowObject();
+//            remoteUdpChannel = this.proxyTcpChannelPool.borrowObject();
+            remoteUdpChannel =this.proxyTcpChannelBootstrap.connect().syncUninterruptibly().channel();
         } catch (Exception e) {
             return;
         }
@@ -323,7 +326,8 @@ public class IoLoopFlowProcessor {
         }
         Channel proxyTcpChannel = null;
         try {
-            proxyTcpChannel = this.proxyTcpChannelPool.borrowObject();
+//            proxyTcpChannel = this.proxyTcpChannelPool.borrowObject();
+            proxyTcpChannel = this.proxyTcpChannelBootstrap.connect().syncUninterruptibly().channel();
         } catch (Exception e) {
             IpPacket ipPacketWroteToDevice =
                     TcpIoLoopRemoteToDeviceWriter.INSTANCE.buildFinAck(
