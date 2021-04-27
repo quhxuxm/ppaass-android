@@ -1,4 +1,4 @@
-package com.ppaass.agent.android;
+package com.ppaass.agent.android.log;
 
 import android.util.Log;
 import com.ppaass.common.log.IPpaassLogger;
@@ -19,7 +19,7 @@ public class PpaasAndroidAgentLogger implements IPpaassLogger {
     private String findCurrentLoggerClassStackTraceIndex(StackTraceElement[] stackTraceElements) {
         for (int i = 0; i < stackTraceElements.length; i++) {
             if (stackTraceElements[i].getClassName().equals(PpaasAndroidAgentLogger.class.getName())) {
-                return stackTraceElements[i + 1].getClassName();
+                return stackTraceElements[i + 2].getClassName();
             }
         }
         return PpaasAndroidAgentLogger.class.getName();
@@ -81,29 +81,29 @@ public class PpaasAndroidAgentLogger implements IPpaassLogger {
                             (Throwable) exception);
                     break;
             }
-        } else {
-            switch (level) {
-                case Log.INFO:
-                    Log.i(targetClass.getName(),
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.ERROR:
-                    Log.e(targetClass.getName(),
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.WARN:
-                    Log.w(targetClass.getName(),
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.DEBUG:
-                    Log.d(targetClass.getName(),
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.VERBOSE:
-                    Log.v(targetClass.getName(),
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-            }
+            return;
+        }
+        switch (level) {
+            case Log.INFO:
+                Log.i(targetClass.getName(),
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.ERROR:
+                Log.e(targetClass.getName(),
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.WARN:
+                Log.w(targetClass.getName(),
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.DEBUG:
+                Log.d(targetClass.getName(),
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.VERBOSE:
+                Log.v(targetClass.getName(),
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
         }
     }
 
@@ -149,29 +149,29 @@ public class PpaasAndroidAgentLogger implements IPpaassLogger {
                             (Throwable) exception);
                     break;
             }
-        } else {
-            switch (level) {
-                case Log.INFO:
-                    Log.i(invokingClassName,
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.ERROR:
-                    Log.e(invokingClassName,
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.WARN:
-                    Log.w(invokingClassName,
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.DEBUG:
-                    Log.d(invokingClassName,
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-                case Log.VERBOSE:
-                    Log.v(invokingClassName,
-                            String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
-                    break;
-            }
+            return;
+        }
+        switch (level) {
+            case Log.INFO:
+                Log.i(invokingClassName,
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.ERROR:
+                Log.e(invokingClassName,
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.WARN:
+                Log.w(invokingClassName,
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.DEBUG:
+                Log.d(invokingClassName,
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
+            case Log.VERBOSE:
+                Log.v(invokingClassName,
+                        String.format(logMessageFormat, loggerParamWrapper.noneExceptionParams));
+                break;
         }
     }
 

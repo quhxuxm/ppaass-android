@@ -110,7 +110,7 @@ public class IoLoopFlowProcessor {
         GenericObjectPoolConfig<Channel> config = new GenericObjectPoolConfig<>();
         config.setMaxIdle(64);
         config.setMaxTotal(64);
-        config.setMinIdle(32);
+        config.setMinIdle(8);
         config.setMaxWaitMillis(2000);
         config.setBlockWhenExhausted(true);
         config.setTestWhileIdle(true);

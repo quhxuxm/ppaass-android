@@ -6,13 +6,14 @@ import android.os.Bundle;
 import android.widget.Button;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import com.ppaass.agent.android.log.PpaasAndroidAgentLogger;
 import com.ppaass.agent.android.R;
 import com.ppaass.agent.android.service.PpaassVpnService;
 import com.ppaass.common.log.PpaassLoggerFactory;
 
 public class MainActivity extends AppCompatActivity {
     static {
-        PpaassLoggerFactory.INSTANCE.init("com.ppaass.agent.android.PpaasAndroidAgentLogger");
+        PpaassLoggerFactory.INSTANCE.init(PpaasAndroidAgentLogger.class);
     }
 
     private static final int VPN_SERVICE_REQUEST_CODE = 1;
