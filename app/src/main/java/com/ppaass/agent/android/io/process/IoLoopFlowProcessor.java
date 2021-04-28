@@ -53,6 +53,7 @@ public class IoLoopFlowProcessor {
     private final byte[] proxyPublicKeyBytes;
     private final ReentrantReadWriteLock reentrantReadWriteLock;
     //    private GenericObjectPool<Channel> proxyTcpChannelPool;
+    private Channel proxyUdpOnTcpChannel;
     private final VpnService vpnService;
 
     public IoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream, byte[] agentPrivateKeyBytes,
@@ -75,6 +76,7 @@ public class IoLoopFlowProcessor {
             try {
                 this.reentrantReadWriteLock.writeLock().lock();
                 this.proxyTcpChannelBootstrap = this.createProxyTcpChannelBootstrap(vpnService, remoteToDeviceStream);
+                this.proxyUdpOnTcpChannel = this.proxyTcpChannelBootstrap.connect().syncUninterruptibly().channel();
 //                this.proxyTcpChannelPool = this.createProxyTcpChannelPool(this.proxyTcpChannelBootstrap);
             } finally {
                 this.reentrantReadWriteLock.writeLock().unlock();
@@ -255,19 +257,7 @@ public class IoLoopFlowProcessor {
                         UUIDUtil.INSTANCE.generateUuidInBytes(),
                         EncryptionType.choose(),
                         agentMessageBody);
-        Channel remoteUdpChannel = null;
-        try {
-//            remoteUdpChannel = this.proxyTcpChannelPool.borrowObject();
-            remoteUdpChannel = this.proxyTcpChannelBootstrap.connect().syncUninterruptibly().channel();
-        } catch (Exception e) {
-            logger.error(() -> "Fail to create connection to pass UDP package because of exception.",
-                    () -> new Object[]{e});
-            return;
-        }
-        logger.debug(() -> "Write UDP data to proxy, agent message:\n{}\n", () -> new Object[]{
-                agentMessage
-        });
-        remoteUdpChannel.writeAndFlush(agentMessage);
+        this.proxyUdpOnTcpChannel.writeAndFlush(agentMessage);
     }
 
     public void executeTcp(IpPacket inputIpPacket) {
