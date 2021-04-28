@@ -10,6 +10,7 @@ import com.ppaass.common.handler.PrintExceptionHandler;
 import com.ppaass.common.handler.ProxyMessageDecoder;
 import com.ppaass.common.log.IPpaassLogger;
 import com.ppaass.common.log.PpaassLoggerFactory;
+import com.ppaass.common.util.UUIDUtil;
 import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
 import com.ppaass.protocol.base.ip.IpV4Header;
@@ -17,7 +18,6 @@ import com.ppaass.protocol.base.tcp.TcpHeader;
 import com.ppaass.protocol.base.tcp.TcpPacket;
 import com.ppaass.protocol.base.udp.UdpHeader;
 import com.ppaass.protocol.base.udp.UdpPacket;
-import com.ppaass.protocol.common.util.UUIDUtil;
 import com.ppaass.protocol.vpn.message.AgentMessage;
 import com.ppaass.protocol.vpn.message.AgentMessageBody;
 import com.ppaass.protocol.vpn.message.AgentMessageBodyType;
@@ -35,9 +35,6 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.codec.LengthFieldPrepender;
 import io.netty.handler.codec.compression.Lz4FrameDecoder;
 import io.netty.handler.codec.compression.Lz4FrameEncoder;
-import org.apache.commons.pool2.impl.AbandonedConfig;
-import org.apache.commons.pool2.impl.GenericObjectPool;
-import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
 
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -55,7 +52,7 @@ public class IoLoopFlowProcessor {
     private final byte[] agentPrivateKeyBytes;
     private final byte[] proxyPublicKeyBytes;
     private final ReentrantReadWriteLock reentrantReadWriteLock;
-//    private GenericObjectPool<Channel> proxyTcpChannelPool;
+    //    private GenericObjectPool<Channel> proxyTcpChannelPool;
     private final VpnService vpnService;
 
     public IoLoopFlowProcessor(VpnService vpnService, OutputStream remoteToDeviceStream, byte[] agentPrivateKeyBytes,
@@ -103,7 +100,6 @@ public class IoLoopFlowProcessor {
             this.reentrantReadWriteLock.writeLock().unlock();
         }
     }
-
 //    private GenericObjectPool<Channel> createProxyTcpChannelPool(Bootstrap proxyTcpChannelBootstrap) {
 //        ProxyTcpChannelFactory proxyTcpChannelFactory =
 //                new ProxyTcpChannelFactory(proxyTcpChannelBootstrap);
@@ -262,8 +258,10 @@ public class IoLoopFlowProcessor {
         Channel remoteUdpChannel = null;
         try {
 //            remoteUdpChannel = this.proxyTcpChannelPool.borrowObject();
-            remoteUdpChannel =this.proxyTcpChannelBootstrap.connect().syncUninterruptibly().channel();
+            remoteUdpChannel = this.proxyTcpChannelBootstrap.connect().syncUninterruptibly().channel();
         } catch (Exception e) {
+            logger.error(() -> "Fail to create connection to pass UDP package because of exception.",
+                    () -> new Object[]{e});
             return;
         }
         logger.debug(() -> "Write UDP data to proxy, agent message:\n{}\n", () -> new Object[]{
@@ -340,6 +338,8 @@ public class IoLoopFlowProcessor {
             TcpIoLoopRemoteToDeviceWriter.INSTANCE
                     .writeIpPacketToDevice(null, ipPacketWroteToDevice, null,
                             remoteToDeviceStream);
+            logger.error(() -> "Fail to create connection to pass TCP package because of exception.",
+                    () -> new Object[]{e});
             return;
         }
         TcpIoLoop tcpIoLoop = getOrCreateTcpIoLoop(inputIpPacket, proxyTcpChannel);

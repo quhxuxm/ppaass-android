@@ -4,7 +4,7 @@ import com.ppaass.common.log.IPpaassLogger;
 import com.ppaass.common.log.PpaassLoggerFactory;
 import com.ppaass.protocol.base.ip.IpDataProtocol;
 import com.ppaass.protocol.base.ip.IpPacket;
-import com.ppaass.protocol.common.util.UUIDUtil;
+import com.ppaass.common.util.UUIDUtil;
 import com.ppaass.protocol.vpn.message.ProxyMessage;
 import com.ppaass.protocol.vpn.message.ProxyMessageBodyType;
 import io.netty.buffer.ByteBufUtil;

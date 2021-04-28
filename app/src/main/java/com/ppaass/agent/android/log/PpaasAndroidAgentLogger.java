@@ -41,6 +41,10 @@ public class PpaasAndroidAgentLogger implements IPpaassLogger {
         return result;
     }
 
+    private String convertFormatString(String formatString) {
+        return formatString.replace("{}", "%s");
+    }
+
     private <T> void concretePrintLogWithTargetClass(int level, Class<T> targetClass, Supplier<String> logSupplier,
                                                      Supplier<Object[]> argumentsSupplier) {
         Object[] arguments = new Object[]{};
@@ -49,6 +53,7 @@ public class PpaasAndroidAgentLogger implements IPpaassLogger {
         }
         LoggerParamWrapper loggerParamWrapper = this.filterNoneExceptionParams(arguments);
         String logMessageFormat = logSupplier.get();
+        logMessageFormat = this.convertFormatString(logMessageFormat);
         Object exception = null;
         if (loggerParamWrapper.exceptionParams.length > 0) {
             exception = loggerParamWrapper.exceptionParams[0];
@@ -117,6 +122,7 @@ public class PpaasAndroidAgentLogger implements IPpaassLogger {
         }
         LoggerParamWrapper loggerParamWrapper = this.filterNoneExceptionParams(arguments);
         String logMessageFormat = logSupplier.get();
+        logMessageFormat = this.convertFormatString(logMessageFormat);
         Object exception = null;
         if (loggerParamWrapper.exceptionParams.length > 0) {
             exception = loggerParamWrapper.exceptionParams[0];
