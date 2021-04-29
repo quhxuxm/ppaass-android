@@ -237,6 +237,9 @@ public class IoLoopFlowProcessor {
         } catch (UnknownHostException e) {
             return;
         }
+        logger.debug(()->"Read UDP packet: \n{}\n", ()->new Object[]{
+             ByteBufUtil.prettyHexDump(Unpooled.wrappedBuffer(inputUdpPacket.getData()))
+        });
         AgentMessageBody agentMessageBody =
                 new AgentMessageBody(
                         UUIDUtil.INSTANCE.generateUuid(),
